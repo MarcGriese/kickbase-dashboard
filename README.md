@@ -21,6 +21,17 @@ Für einen Produktions-Build lokal:
 npm run build && npm start
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
+Getestet wird die Buchhaltung hinter den hergeleiteten Kontoständen
+(`src/lib/league.ts`) – der einzige Teil der App, den man nicht gegen die API
+prüfen kann, weil fremde Budgets dort gar nicht auftauchen. Läuft über den
+Node-Testrunner ohne zusätzliches Framework und braucht Node 22.6+.
+
 ## Anmeldung
 
 Die App schickt E-Mail und Passwort einmalig an `api.kickbase.com` und legt den
@@ -39,7 +50,7 @@ Einstellungen → Profil ein eigenes Passwort.
 | ------------ | --------------------------------------------------------------- |
 | `/dashboard` | Kaderansicht mit Filtern, Marktwerten, Prognose und Spielplan    |
 | `/markt`     | Transfermarkt mit Kaufempfehlung und Maximalgebot                |
-| `/liga`      | Tabelle mit Rückstand auf Platz 1                                |
+| `/liga`      | Tabelle nach Punkten, mit hergeleiteten Kontoständen aller Manager |
 
 ## Das Dashboard
 
@@ -61,6 +72,45 @@ Gegnerstärke: rot für Gegner aus den oberen Tabellenrängen, gelb fürs
 Mittelfeld, grün für machbare Aufgaben. Heimspiele werden zwei Tabellenplätze
 milder gerechnet, Auswärtsspiele zwei härter. Liefert die API keine Tabelle,
 bleibt alles gelb – geraten wird hier nichts.
+
+## Die Liga-Tabelle
+
+Sortiert nach Gesamtpunkten – so wird die Liga entschieden. Jede Spalte lässt
+sich per Klick auf die Überschrift umsortieren, die Platzierung bleibt dabei
+die aus den Punkten. Neben Gesamtpunkten stehen die Punkte des zuletzt
+gewerteten Spieltags (`mdp` aus der Rangliste), Teamwert, Transfergewinn,
+Budget und der maximale Kaderwert.
+
+### Wie die fremden Kontostände zustande kommen
+
+Kickbase zeigt dir das Budget deiner Mitspieler nicht an – das ist Teil des
+Spiels. Ausrechnen lässt es sich trotzdem, solange **ohne Boni** gespielt wird:
+
+```
+Budget = Startkapital + Transfergewinn + stille Reserven − Teamwert
+```
+
+Startkapital ist der zugeteilte Startkader plus Startbudget (hier 100 + 50
+Mio), die stillen Reserven sind die Summe aller Gewinne und Verluste seit Kauf
+im aktuellen Kader. Die Herleitung steht ausgeschrieben in `src/lib/league.ts`.
+
+Die Zutaten kommen aus zwei Endpunkten pro Manager:
+`/managers/{userId}/dashboard` liefert Teamwert und Transfergewinn (`prft`),
+`/managers/{userId}/squad` die `mvgl`-Werte für die stillen Reserven. Beides
+läuft mit begrenzter Gleichzeitigkeit, damit eine große Liga nicht auf einen
+Schlag vierzig Anfragen auslöst.
+
+**Die Rechnung prüft sich selbst.** Es ist nicht dokumentiert, ob `prft` der
+realisierte Transfergewinn ist oder die stillen Reserven schon enthält. Statt
+zu raten, rechnet die App beide Lesarten für *dein* Konto durch und vergleicht
+sie mit deinem echten Kontostand aus `/me/budget`. Die Lesart, die trifft, gilt
+für alle. Über der Tabelle steht, ob die Probe aufgegangen ist – und wenn
+nicht, um wie viel sie danebenlag. Weicht sie um mehr als ein Prozent des
+Startkapitals ab, stimmen entweder die Startwerte nicht oder es werden doch
+Boni ausgezahlt; dann sind die Zahlen als grobe Richtung gekennzeichnet.
+
+Andere Ligaregeln stellst du über `KB_START_TEAM_VALUE` und `KB_START_BUDGET`
+ein, siehe `.env.example`.
 
 ## Wie die Prognose zustande kommt
 
@@ -96,8 +146,10 @@ letzten **sieben Tage** (seven day), `tfhmvt` die der letzten **24 Stunden**
 (twenty four hour). Wer beides in denselben Topf wirft, zeigt eine
 Wochenbewegung als Tageswert an. Die App führt beide Werte getrennt.
 
-Die Zusatzendpunkte für Spielplan (`/v4/competitions/1/matchdays`) und
-Bundesliga-Tabelle (`/v4/competitions/1/table`) sind nicht dokumentiert.
+Die Zusatzendpunkte für Spielplan (`/v4/competitions/1/matchdays`),
+Bundesliga-Tabelle (`/v4/competitions/1/table`) und die Manager-Daten
+(`/v4/leagues/{id}/managers/{userId}/dashboard` und `.../squad`) sind nicht
+offiziell dokumentiert.
 Antworten sie anders als erwartet, geben die Funktionen in
 `src/lib/kickbase.ts` `null` zurück und die Oberfläche zeigt den Abschnitt
 einfach nicht – eine fehlende Paarung darf nie das Dashboard zerlegen.

@@ -1,113 +1,222 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { Empty } from "@/components/ui";
+import { LeagueTable, LeagueLead, type LeagueRow } from "@/components/LeagueTable";
 import { getToken, getLeagueId } from "@/lib/session";
-import { getRanking, KickbaseError } from "@/lib/kickbase";
+import {
+  getRanking,
+  getBudget,
+  getManagerDashboard,
+  getManagerSquad,
+  mapLimit,
+  KickbaseError,
+} from "@/lib/kickbase";
+import {
+  calibrate,
+  deriveBudget,
+  parseRanking,
+  rulesFromEnv,
+  startCapital,
+  sumUnrealized,
+  type ManagerRow,
+} from "@/lib/league";
+import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
 import { eur } from "@/lib/fields";
 
 export const dynamic = "force-dynamic";
 
-interface Manager {
-  id: string;
-  name: string;
-  points: number;
-  teamValue: number | null;
-  isMe: boolean;
-}
+/** Gleichzeitige Anfragen an die Kickbase-API. */
+const CONCURRENCY = 6;
 
 export default async function LigaPage() {
   const token = getToken();
   const leagueId = getLeagueId();
   if (!token || !leagueId) redirect("/login");
 
-  let raw;
+  const rules = rulesFromEnv(process.env);
+
+  let rankingRaw, myBudget;
   try {
-    raw = await getRanking(token, leagueId);
+    [rankingRaw, myBudget] = await Promise.all([
+      getRanking(token, leagueId),
+      getBudget(token, leagueId),
+    ]);
   } catch (err) {
     if (err instanceof KickbaseError && err.status === 401) redirect("/login");
     throw err;
   }
 
-  const meId = String(raw.me?.i ?? raw.mu ?? "");
-  const items: any[] = raw.us ?? raw.it ?? raw.users ?? [];
+  const managers = parseRanking(rankingRaw);
 
-  const managers: Manager[] = items.map((u) => ({
-    id: String(u.i ?? u.id ?? ""),
-    name: String(u.n ?? u.name ?? "Manager"),
-    points: Number(u.sp ?? u.p ?? u.points ?? 0),
-    teamValue: u.tv ?? u.teamValue ?? null,
-    isMe: String(u.i ?? u.id ?? "") === meId,
-  }));
+  // Pro Manager Dashboard (Transfergewinn) und Kader (stille Reserven).
+  // Beides darf einzeln fehlschlagen - dann bleibt die Zeile unvollstaendig.
+  const enriched: ManagerRow[] = await mapLimit(managers, CONCURRENCY, async (m) => {
+    if (!m.id) return m;
+    const [dash, squad] = await Promise.all([
+      getManagerDashboard(token, leagueId, m.id),
+      getManagerSquad(token, leagueId, m.id),
+    ]);
+    return {
+      ...m,
+      teamValue: m.teamValue ?? numOrNull(dash?.tv),
+      profit: numOrNull(dash?.prft),
+      unrealized: sumUnrealized(squad),
+    };
+  });
 
-  const leader = managers[0]?.points ?? 0;
+  // Der einzige Kontostand, den wir sicher kennen, ist der eigene. Er
+  // entscheidet, welche Lesart von "prft" fuer alle gilt.
+  const me = enriched.find((m) => m.isMe) ?? null;
+  const calibration = calibrate(me, myBudget, rules);
+
+  const rows: LeagueRow[] = enriched.map((m) => {
+    // Beim eigenen Konto zaehlt der echte Wert, nicht die Herleitung.
+    const budget =
+      m.isMe && myBudget !== null
+        ? myBudget
+        : deriveBudget(m, rules, calibration.reading);
+
+    const room =
+      budget !== null && m.teamValue !== null
+        ? budgetRoom(m.teamValue, budget)
+        : null;
+
+    return {
+      id: m.id,
+      name: m.name,
+      points: m.points,
+      matchdayPoints: m.matchdayPoints,
+      teamValue: m.teamValue,
+      profit: m.profit,
+      budget,
+      squadValue: room?.squadValue ?? null,
+      maxNegative: room?.maxNegative ?? null,
+      isMe: m.isMe,
+    };
+  });
+
+  const matchday = numOrNull(rankingRaw?.day ?? rankingRaw?.cd ?? rankingRaw?.md);
+  const derivedCount = rows.filter((r) => !r.isMe && r.budget !== null).length;
 
   return (
     <>
       <Nav />
       <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
-        <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-night-700 px-4 py-3">
-            <h2 className="display text-base">Tabelle</h2>
-            <span className="label">Rückstand auf Platz 1</span>
-          </div>
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1 className="display text-xl">Liga</h1>
+          <LeagueLead rows={rows} />
+        </div>
 
-          {managers.length ? (
-            <ul>
-              {managers.map((m, i) => {
-                const gap = leader - m.points;
-                return (
-                  <li
-                    key={m.id || i}
-                    className={`flex items-center gap-3 border-b border-night-700/70 px-4 py-3 last:border-0 ${
-                      m.isMe ? "bg-kb/5" : ""
-                    }`}
-                  >
-                    <span
-                      className={`num w-7 shrink-0 text-center text-data-sm font-bold ${
-                        i === 0 ? "text-kb" : "text-snow-faint"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
+        {/* Wie verlaesslich die hergeleiteten Konten sind, gehoert ueber die
+            Tabelle und nicht ins Kleingedruckte. */}
+        <CalibrationNote
+          trusted={calibration.trusted}
+          error={calibration.error}
+          reading={calibration.reading}
+          derivedCount={derivedCount}
+          capital={startCapital(rules)}
+          hasOwnBudget={myBudget !== null}
+        />
 
-                    <span
-                      className={`min-w-0 flex-1 truncate ${
-                        m.isMe ? "font-bold text-kb" : "font-medium"
-                      }`}
-                    >
-                      {m.name}
-                      {m.isMe && (
-                        <span className="ml-2 text-data-xs font-normal text-snow-faint">
-                          du
-                        </span>
-                      )}
-                    </span>
+        <LeagueTable rows={rows} matchday={matchday} />
 
-                    {m.teamValue !== null && (
-                      <span className="num hidden w-24 text-right text-data-sm text-snow-muted sm:block">
-                        {eur(m.teamValue)}
-                      </span>
-                    )}
-
-                    <span className="num w-20 text-right text-data-sm font-semibold">
-                      {m.points.toLocaleString("de-DE")}
-                    </span>
-
-                    <span className="num w-20 text-right text-data-sm text-snow-faint">
-                      {i === 0 ? "–" : `−${gap.toLocaleString("de-DE")}`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <Empty
-              title="Keine Tabelle verfügbar"
-              hint="Die API hat für diese Liga keine Rangliste geliefert."
-            />
-          )}
-        </section>
+        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-snow-faint">
+          <p>
+            <span className="font-semibold text-snow-muted">
+              Woher das Budget kommt:
+            </span>{" "}
+            Kickbase zeigt die Kontostände deiner Mitspieler nicht an. Sie lassen
+            sich aber ausrechnen, solange ohne Boni gespielt wird: Startkapital
+            ({eur(rules.startTeamValue)} Startkader + {eur(rules.startBudget)}{" "}
+            Budget) + Transfergewinn + stille Reserven des Kaders − aktueller
+            Teamwert. Die stillen Reserven sind die Summe der Gewinne und
+            Verluste seit Kauf über alle Spieler eines Kaders.
+          </p>
+          <p>
+            <span className="font-semibold text-snow-muted">Andere Ligaregeln?</span>{" "}
+            Startkader und Startbudget lassen sich über die Umgebungsvariablen{" "}
+            <code className="text-snow-muted">KB_START_TEAM_VALUE</code> und{" "}
+            <code className="text-snow-muted">KB_START_BUDGET</code> setzen.
+            Werden in der Liga Boni ausgezahlt, stimmt die Rechnung nicht mehr –
+            die Prüfung über der Tabelle schlägt dann Alarm.
+          </p>
+          <p>
+            <span className="font-semibold text-snow-muted">Max. Kader:</span>{" "}
+            Teamwert + Budget, also der größtmögliche Kaderwert zu
+            Spieltagsbeginn. Darunter steht, bis wohin das Konto ins Minus darf
+            ({Math.round(MAX_NEGATIVE_SHARE * 100)} % davon).
+          </p>
+        </div>
       </main>
     </>
   );
+}
+
+/**
+ * Sagt vor der Tabelle, ob den hergeleiteten Kontostaenden zu trauen ist.
+ * Ohne diese Zeile waeren es Zahlen ohne Herkunft.
+ */
+function CalibrationNote({
+  trusted,
+  error,
+  reading,
+  derivedCount,
+  capital,
+  hasOwnBudget,
+}: {
+  trusted: boolean;
+  error: number | null;
+  reading: string;
+  derivedCount: number;
+  capital: number;
+  hasOwnBudget: boolean;
+}) {
+  if (!derivedCount) return null;
+
+  if (trusted && error !== null) {
+    return (
+      <div className="mb-4 rounded-card border border-kb/25 bg-kb/5 px-4 py-3">
+        <p className="text-data-sm text-snow-muted">
+          <span className="font-bold uppercase tracking-wider text-kb">Geprüft:</span>{" "}
+          Die Herleitung trifft dein eigenes Budget
+          {error === 0
+            ? " auf den Euro genau"
+            : ` bis auf ${eur(Math.abs(error))}`}
+          . Die {derivedCount} anderen Kontostände sind nach derselben Rechnung
+          entstanden und damit belastbar.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-card border border-warn/30 bg-warn/5 px-4 py-3">
+      <p className="text-data-sm text-snow-muted">
+        <span className="font-bold uppercase tracking-wider text-warn">
+          Ungeprüft:
+        </span>{" "}
+        {hasOwnBudget && error !== null ? (
+          <>
+            Die Herleitung verfehlt dein eigenes Budget um {eur(Math.abs(error))} –
+            mehr als das eine Prozent des Startkapitals ({eur(capital)}), das noch
+            als Rundung durchgeht. Wahrscheinlich stimmen die Startwerte der Liga
+            nicht, oder es werden doch Boni ausgezahlt.
+          </>
+        ) : (
+          <>
+            Ohne deinen eigenen Kontostand lässt sich die Rechnung nicht
+            gegenprüfen. Die Zahlen sind eine Herleitung, keine Auskunft der API.
+          </>
+        )}{" "}
+        Gelesen wurde der Transfergewinn als{" "}
+        <span className="text-snow">{reading}</span>. Nimm die Budgets als grobe
+        Richtung, nicht als Beleg.
+      </p>
+    </div>
+  );
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }

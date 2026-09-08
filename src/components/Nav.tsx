@@ -22,12 +22,14 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-night-700 bg-night-900/85 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3">
-        <Link href="/dashboard" aria-label="Zur Übersicht">
+      {/* Auf schmalen Schirmen bricht die Linkleiste in eine zweite Zeile -
+          in einer Reihe passen Wortmarke, drei Links und Abmelden nicht. */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <Link href="/dashboard" aria-label="Zur Übersicht" className="order-1">
           <Wordmark />
         </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="order-3 flex w-full items-center gap-1 sm:order-2 sm:w-auto">
           {LINKS.map((l) => {
             const active = pathname === l.href;
             return (
@@ -49,7 +51,7 @@ export function Nav() {
 
         <button
           onClick={abmelden}
-          className="ml-auto rounded-md px-3 py-1.5 text-data-sm text-snow-faint transition-colors hover:bg-night-800 hover:text-snow"
+          className="order-2 ml-auto rounded-md px-3 py-1.5 text-data-sm text-snow-faint transition-colors hover:bg-night-800 hover:text-snow sm:order-3"
         >
           Abmelden
         </button>

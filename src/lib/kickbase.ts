@@ -132,8 +132,85 @@ export async function getMarket(token: string, leagueId: string) {
   return (d.it ?? []) as Json[];
 }
 
-export async function getRanking(token: string, leagueId: string) {
-  return request<Json>(`/v4/leagues/${leagueId}/ranking`, token);
+/**
+ * Rangliste der Liga. Ohne `dayNumber` die Gesamtwertung; die Antwort traegt
+ * pro Manager auch `mdp`, die Punkte des zuletzt gewerteten Spieltags.
+ */
+export async function getRanking(
+  token: string,
+  leagueId: string,
+  dayNumber?: number
+) {
+  const q = dayNumber === undefined ? "" : `?dayNumber=${dayNumber}`;
+  return request<Json>(`/v4/leagues/${leagueId}/ranking${q}`, token);
+}
+
+/**
+ * Manager-Dashboard eines Mitspielers: Teamwert (`tv`), Transfergewinn
+ * (`prft`), Punkte (`tp`). Grundlage der Budget-Herleitung in league.ts.
+ */
+export async function getManagerDashboard(
+  token: string,
+  leagueId: string,
+  userId: string
+): Promise<Json | null> {
+  try {
+    return await request<Json>(
+      `/v4/leagues/${leagueId}/managers/${userId}/dashboard`,
+      token
+    );
+  } catch (err) {
+    if (err instanceof KickbaseError && err.status === 401) throw err;
+    return null;
+  }
+}
+
+/**
+ * Kader eines Mitspielers. Enthaelt pro Spieler `mvgl` - genau die stillen
+ * Reserven, die der Kontoherleitung noch fehlen.
+ */
+export async function getManagerSquad(
+  token: string,
+  leagueId: string,
+  userId: string
+): Promise<Json[] | null> {
+  try {
+    const d = await request<Json>(
+      `/v4/leagues/${leagueId}/managers/${userId}/squad`,
+      token
+    );
+    return Array.isArray(d.it) ? (d.it as Json[]) : null;
+  } catch (err) {
+    if (err instanceof KickbaseError && err.status === 401) throw err;
+    return null;
+  }
+}
+
+/**
+ * Arbeitet eine Liste mit begrenzter Gleichzeitigkeit ab.
+ *
+ * Eine Liga mit 18 Managern ergaebe sonst 36 Anfragen auf einen Schlag -
+ * das mag weder die API noch der eigene Server.
+ */
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  );
+  return out;
 }
 
 export async function getBudget(token: string, leagueId: string) {
