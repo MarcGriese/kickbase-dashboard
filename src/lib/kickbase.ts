@@ -4,11 +4,19 @@
  * Laeuft ausschliesslich auf dem Server: der Token verlaesst nie den Node-Prozess
  * ausser als httpOnly-Cookie. Damit umgehen wir auch CORS - der Browser spricht
  * nur mit deinem eigenen Next.js-Server, nie direkt mit api.kickbase.com.
+ *
+ * Grundregel fuer alles ausser Login/Kader: Wenn ein Zusatzendpunkt sich
+ * anders verhaelt als erwartet, faellt die Funktion auf null zurueck und die
+ * Oberflaeche zeigt den Abschnitt einfach nicht. Eine fehlende Spielpaarung
+ * darf nie das Dashboard zerlegen.
  */
 
 import "server-only";
 
 export const BASE_URL = "https://api.kickbase.com";
+
+/** Bundesliga. Andere Wettbewerbe hat die App bewusst nicht im Blick. */
+export const COMPETITION_ID = "1";
 
 export class KickbaseError extends Error {
   constructor(
@@ -51,6 +59,25 @@ async function request<T = Json>(
   return (await res.json()) as T;
 }
 
+/** Probiert mehrere Pfade durch und nimmt den ersten, der Daten liefert. */
+async function firstOf<T = Json>(
+  paths: string[],
+  token: string,
+  ok: (d: Json) => T | null
+): Promise<T | null> {
+  for (const path of paths) {
+    try {
+      const d = await request<Json>(path, token);
+      const v = ok(d);
+      if (v !== null) return v;
+    } catch (err) {
+      if (err instanceof KickbaseError && err.status === 401) throw err;
+      // sonst: naechsten Pfad probieren
+    }
+  }
+  return null;
+}
+
 /** Meldet dich an und gibt Token + Rohdaten zurueck. */
 export async function login(email: string, password: string) {
   const res = await fetch(BASE_URL + "/v4/user/login", {
@@ -84,17 +111,15 @@ export async function login(email: string, password: string) {
 
 /** Alle Ligen, in denen du Manager bist. */
 export async function getLeagues(token: string) {
-  for (const path of ["/v4/leagues/selection", "/v4/leagues", "/v4/leagues/list"]) {
-    try {
-      const d = await request<Json>(path, token);
-      const items = d.it ?? d.leagues ?? d.srvl ?? [];
-      if (Array.isArray(items) && items.length) return items as Json[];
-    } catch (err) {
-      if (err instanceof KickbaseError && err.status === 401) throw err;
-      // sonst: naechsten Pfad probieren
+  const items = await firstOf<Json[]>(
+    ["/v4/leagues/selection", "/v4/leagues", "/v4/leagues/list"],
+    token,
+    (d) => {
+      const it = d.it ?? d.leagues ?? d.srvl ?? [];
+      return Array.isArray(it) && it.length ? (it as Json[]) : null;
     }
-  }
-  return [] as Json[];
+  );
+  return items ?? [];
 }
 
 export async function getSquad(token: string, leagueId: string) {
@@ -120,10 +145,71 @@ export async function getBudget(token: string, leagueId: string) {
   }
 }
 
+/**
+ * Budget und Teamwert, wie Kickbase sie selbst fuehrt.
+ *
+ * Der Teamwert aus der API ist massgeblich - die Summe der Marktwerte aus dem
+ * Kader kann davon abweichen (Kickbase rundet und rechnet Leihen anders).
+ * Wenn der Endpunkt nichts hergibt, rechnet die Seite selbst.
+ */
+export async function getTeamOverview(
+  token: string,
+  leagueId: string
+): Promise<{ budget: number | null; teamValue: number | null }> {
+  const found = await firstOf<{ budget: number | null; teamValue: number | null }>(
+    [`/v4/leagues/${leagueId}/me`, `/v4/leagues/${leagueId}/overview`],
+    token,
+    (d) => {
+      const budget = num(d.b ?? d.budget ?? d.bs);
+      const teamValue = num(d.tv ?? d.teamValue ?? d.tvs);
+      if (budget === null && teamValue === null) return null;
+      return { budget, teamValue };
+    }
+  );
+
+  if (found && found.budget !== null) return found;
+
+  // Budget notfalls aus dem eigenen Endpunkt nachziehen.
+  const budget = await getBudget(token, leagueId);
+  return { budget, teamValue: found?.teamValue ?? null };
+}
+
 export async function getFeed(token: string, leagueId: string) {
   try {
     return await request<Json>(`/v4/leagues/${leagueId}/activitiesFeed`, token);
   } catch {
     return {} as Json;
   }
+}
+
+/**
+ * Spielplan der Bundesliga: alle Spieltage mit Paarungen und Anstosszeiten.
+ * Basis fuer "die naechsten drei Spiele" und fuer den Prognose-Horizont.
+ */
+export async function getMatchdays(token: string): Promise<Json | null> {
+  return firstOf<Json>(
+    [
+      `/v4/competitions/${COMPETITION_ID}/matchdays`,
+      `/v4/competitions/${COMPETITION_ID}/matches`,
+    ],
+    token,
+    (d) => (Array.isArray(d.it) && d.it.length ? d : null)
+  );
+}
+
+/** Bundesliga-Tabelle - liefert die Staerke der kommenden Gegner. */
+export async function getCompetitionTable(token: string): Promise<Json | null> {
+  return firstOf<Json>(
+    [
+      `/v4/competitions/${COMPETITION_ID}/table`,
+      `/v4/competitions/${COMPETITION_ID}/ranking`,
+    ],
+    token,
+    (d) => (Array.isArray(d.it) && d.it.length ? d : null)
+  );
+}
+
+function num(v: unknown): number | null {
+  const n = Number(v);
+  return v === null || v === undefined || Number.isNaN(n) ? null : n;
 }

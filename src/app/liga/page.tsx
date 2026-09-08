@@ -44,10 +44,10 @@ export default async function LigaPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-5xl animate-fade-up px-4 py-6">
+      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
         <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-pitch-700 px-4 py-3">
-            <h2 className="font-bold tracking-tight">Tabelle</h2>
+          <div className="flex items-baseline justify-between border-b border-night-700 px-4 py-3">
+            <h2 className="display text-base">Tabelle</h2>
             <span className="label">Rückstand auf Platz 1</span>
           </div>
 
@@ -58,13 +58,13 @@ export default async function LigaPage() {
                 return (
                   <li
                     key={m.id || i}
-                    className={`flex items-center gap-3 border-b border-pitch-700/70 px-4 py-3 last:border-0 ${
-                      m.isMe ? "bg-neon/5" : ""
+                    className={`flex items-center gap-3 border-b border-night-700/70 px-4 py-3 last:border-0 ${
+                      m.isMe ? "bg-kb/5" : ""
                     }`}
                   >
                     <span
                       className={`num w-7 shrink-0 text-center text-data-sm font-bold ${
-                        i === 0 ? "text-neon" : "text-chalk-faint"
+                        i === 0 ? "text-kb" : "text-snow-faint"
                       }`}
                     >
                       {i + 1}
@@ -72,19 +72,19 @@ export default async function LigaPage() {
 
                     <span
                       className={`min-w-0 flex-1 truncate ${
-                        m.isMe ? "font-bold text-neon" : "font-medium"
+                        m.isMe ? "font-bold text-kb" : "font-medium"
                       }`}
                     >
                       {m.name}
                       {m.isMe && (
-                        <span className="ml-2 text-data-xs font-normal text-chalk-faint">
+                        <span className="ml-2 text-data-xs font-normal text-snow-faint">
                           du
                         </span>
                       )}
                     </span>
 
                     {m.teamValue !== null && (
-                      <span className="num hidden w-24 text-right text-data-sm text-chalk-muted sm:block">
+                      <span className="num hidden w-24 text-right text-data-sm text-snow-muted sm:block">
                         {eur(m.teamValue)}
                       </span>
                     )}
@@ -93,7 +93,7 @@ export default async function LigaPage() {
                       {m.points.toLocaleString("de-DE")}
                     </span>
 
-                    <span className="num w-20 text-right text-data-sm text-chalk-faint">
+                    <span className="num w-20 text-right text-data-sm text-snow-faint">
                       {i === 0 ? "–" : `−${gap.toLocaleString("de-DE")}`}
                     </span>
                   </li>

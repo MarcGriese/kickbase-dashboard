@@ -9,6 +9,8 @@
  */
 
 import { pick, pct } from "./fields";
+import { forecast, type Forecast } from "./forecast";
+import type { Fixture } from "./fixtures";
 
 export type Verdict = "verkaufen" | "halten" | "stark-halten";
 export type MarketVerdict = "kaufen" | "beobachten" | "finger-weg";
@@ -16,21 +18,34 @@ export type MarketVerdict = "kaufen" | "beobachten" | "finger-weg";
 export interface RatedPlayer {
   id: string;
   name: string;
+  fullName: string;
   pos: number;
+  teamId: number;
+  teamName: string;
   marketValue: number;
+  /** Marktwertbewegung der letzten 24 Stunden. */
   dayDelta: number;
   dayPct: number;
+  /** Marktwertbewegung der letzten 7 Tage. */
+  weekDelta: number;
+  weekPct: number;
   average: number;
   points: number;
+  /** Gewinn/Verlust seit deinem Kauf. */
   totalGain: number;
   status: number;
   image: string | null;
   verdict: Verdict;
   score: number;
   reasons: string[];
+  /** Fortschreibung bis zum naechsten Spieltagsbeginn. */
+  forecast: Forecast;
+  /** Die naechsten Partien seines Vereins. */
+  fixtures: Fixture[];
 }
 
-export interface RatedMarketPlayer extends Omit<RatedPlayer, "verdict" | "totalGain"> {
+export interface RatedMarketPlayer
+  extends Omit<RatedPlayer, "verdict" | "totalGain" | "forecast" | "fixtures"> {
   price: number;
   maxBid: number;
   verdict: MarketVerdict;
@@ -67,13 +82,23 @@ export function leagueOverpay(feed: Record<string, any>): {
 function base(raw: Record<string, any>) {
   const marketValue = Number(pick(raw, "marketValue", 0)) || 0;
   const dayDelta = Number(pick(raw, "dayDelta", 0)) || 0;
+  const weekDelta = Number(pick(raw, "weekDelta", 0)) || 0;
+  const last = String(pick(raw, "name", "Unbekannt"));
+  const first = String(pick(raw, "firstName", "")).trim();
+  const teamId = Number(pick(raw, "teamId", 0)) || 0;
+
   return {
     id: String(pick(raw, "id", "")),
-    name: String(pick(raw, "name", "Unbekannt")),
+    name: last,
+    fullName: first ? `${first} ${last}` : last,
     pos: Number(pick(raw, "pos", 0)) || 0,
+    teamId,
+    teamName: String(pick(raw, "teamName", "")).trim(),
     marketValue,
     dayDelta,
     dayPct: pct(dayDelta, marketValue),
+    weekDelta,
+    weekPct: pct(weekDelta, marketValue),
     average: Number(pick(raw, "average", 0)) || 0,
     points: Number(pick(raw, "points", 0)) || 0,
     status: Number(pick(raw, "status", 0)) || 0,
@@ -81,10 +106,38 @@ function base(raw: Record<string, any>) {
   };
 }
 
-/** Bewertet einen Spieler aus deinem Kader. */
-export function rateOwn(raw: Record<string, any>): RatedPlayer {
+/** Wie viele der naechsten Partien gegen schwere Gegner gehen. */
+function fixtureNote(fixtures: Fixture[]): {
+  points: number;
+  reason: string | null;
+} {
+  if (!fixtures.length) return { points: 0, reason: null };
+  const hard = fixtures.filter((f) => f.strength === "hart").length;
+  const easy = fixtures.filter((f) => f.strength === "leicht").length;
+
+  if (hard >= 2) return { points: -1, reason: `${hard} schwere Gegner` };
+  if (easy >= 2) return { points: 1, reason: `${easy} dankbare Gegner` };
+  return { points: 0, reason: null };
+}
+
+/**
+ * Bewertet einen Spieler aus deinem Kader.
+ *
+ * `context` liefert Spielplan und Prognosehorizont. Fehlt beides, bleibt die
+ * Bewertung die alte - dann eben ohne Gegner- und Prognoseanteil.
+ */
+export function rateOwn(
+  raw: Record<string, any>,
+  context: {
+    fixturesByTeam?: Map<number, Fixture[]>;
+    forecastDays?: number;
+  } = {}
+): RatedPlayer {
   const b = base(raw);
   const totalGain = Number(pick(raw, "totalGain", 0)) || 0;
+  const fixtures = context.fixturesByTeam?.get(b.teamId) ?? [];
+  const fc = forecast(b.marketValue, b.dayDelta, b.weekDelta, context.forecastDays ?? 3);
+
   const reasons: string[] = [];
   let score = 0;
 
@@ -113,10 +166,14 @@ export function rateOwn(raw: Record<string, any>): RatedPlayer {
     reasons.push("nicht einsatzbereit");
   }
 
+  const fx = fixtureNote(fixtures);
+  score += fx.points;
+  if (fx.reason) reasons.push(fx.reason);
+
   const verdict: Verdict =
     score <= -2 ? "verkaufen" : score >= 2 ? "stark-halten" : "halten";
 
-  return { ...b, totalGain, verdict, score, reasons };
+  return { ...b, totalGain, verdict, score, reasons, forecast: fc, fixtures };
 }
 
 /** Bewertet einen Spieler vom Transfermarkt. */

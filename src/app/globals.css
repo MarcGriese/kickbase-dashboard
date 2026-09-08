@@ -7,31 +7,49 @@
     color-scheme: dark;
   }
   body {
-    @apply bg-pitch-950 text-chalk antialiased;
+    @apply bg-night-950 text-snow antialiased;
     /* Sehr dezenter Rasenschimmer am oberen Rand - der einzige Verlauf im UI. */
     background-image: radial-gradient(
       120% 60% at 50% -10%,
-      rgba(0, 224, 135, 0.07) 0%,
+      rgba(20, 229, 109, 0.08) 0%,
       transparent 60%
     );
     background-attachment: fixed;
   }
   /* Sichtbarer Tastaturfokus - ueberall, nicht nur wo es auffaellt. */
   :focus-visible {
-    @apply outline-none ring-2 ring-neon ring-offset-2 ring-offset-pitch-950;
+    @apply outline-none ring-2 ring-kb ring-offset-2 ring-offset-night-950;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-card border border-pitch-700 bg-pitch-850 shadow-card;
+    @apply rounded-card border border-night-700 bg-night-850 shadow-card;
   }
+  /* Kickbase setzt Labels laut, klein und in Versalien. */
   .label {
-    @apply text-data-xs font-semibold uppercase tracking-wider text-chalk-faint;
+    @apply text-data-xs font-bold uppercase tracking-[0.12em] text-snow-faint;
+  }
+  /* Ueberschriften eng gesetzt, in Versalien - die Marken-Handschrift. */
+  .display {
+    @apply font-extrabold uppercase tracking-[-0.01em];
   }
   /* Tabellarische Ziffern: Marktwerte springen beim Aktualisieren nicht. */
   .num {
     font-variant-numeric: tabular-nums;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-md border border-night-700 bg-night-800
+      px-2 py-0.5 text-data-xs font-bold uppercase tracking-wider text-snow-muted;
+  }
+  .field {
+    @apply w-full rounded-lg border border-night-600 bg-night-900 px-3 py-2.5
+      text-data-sm text-snow placeholder:text-snow-faint focus:border-kb;
+  }
+  .btn-primary {
+    @apply rounded-lg bg-kb px-4 py-2.5 text-sm font-bold uppercase tracking-wide
+      text-night-950 transition-colors hover:bg-kb-dim
+      disabled:cursor-not-allowed disabled:opacity-40;
   }
 }
 

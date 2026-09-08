@@ -37,9 +37,39 @@ Einstellungen → Profil ein eigenes Passwort.
 
 | Route        | Inhalt                                                          |
 | ------------ | --------------------------------------------------------------- |
-| `/dashboard` | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Tagesdelta    |
+| `/dashboard` | Kaderansicht mit Filtern, Marktwerten, Prognose und Spielplan    |
 | `/markt`     | Transfermarkt mit Kaufempfehlung und Maximalgebot                |
 | `/liga`      | Tabelle mit Rückstand auf Platz 1                                |
+
+## Das Dashboard
+
+**Kennzahlen.** Teamwert, der maximale Kaderwert zu Spieltagsbeginn
+(Teamwert + Budget) und das Budget selbst. Beim Budget steht dabei, wie weit
+du ins Minus darfst: Kickbase erlaubt bis zu 33 % des Kaderwerts, wobei der
+Kaderwert als Teamwert plus (negatives) Konto gerechnet wird. Die Formel steht
+in `src/lib/budget.ts`. Zweite, davon unabhängige Regel: zum Spieltagsbeginn
+muss das Konto wieder im Plus sein, sonst gibt es keine Punkte.
+
+**Kaderansicht.** Suche über Name und Verein, Filter nach Position, Sortierung
+nach Marktwert, 24 Stunden, 7 Tagen, Gewinn/Verlust seit Kauf, Prognose,
+Schnitt, Punkten, Name oder Position. Pro Spieler: Foto, Vereinswappen,
+Marktwert, 24-Stunden-Bewegung, 7-Tage-Bewegung, Gewinn/Verlust seit deinem
+Kauf und die prognostizierte Entwicklung bis zum nächsten Spieltagsbeginn.
+
+**Nächste drei Spiele.** Aus dem Bundesliga-Spielplan, eingefärbt nach
+Gegnerstärke: rot für Gegner aus den oberen Tabellenrängen, gelb fürs
+Mittelfeld, grün für machbare Aufgaben. Heimspiele werden zwei Tabellenplätze
+milder gerechnet, Auswärtsspiele zwei härter. Liefert die API keine Tabelle,
+bleibt alles gelb – geraten wird hier nichts.
+
+## Wie die Prognose zustande kommt
+
+Kickbase legt seine Marktwertformel nicht offen. Was die App macht, ist eine
+Fortschreibung der beiden Bewegungen, die die API hergibt: 60 % der letzten
+24 Stunden plus 40 % des Wochenschnitts, pro Tag um 15 % abklingend,
+hochgerechnet auf die Tage bis zum nächsten Anpfiff. Das ist eine Heuristik,
+keine Vorhersage – die Oberfläche sagt das auch so. Die Parameter stehen oben
+in `src/lib/forecast.ts`.
 
 ## Wie das Maximalgebot zustande kommt
 
@@ -61,6 +91,17 @@ Kickbase nutzt sehr kurze Feldnamen (`mv`, `ap`, `sdmvt`, …). Alle diese
 Kürzel stehen an genau einer Stelle: `src/lib/fields.ts` im Objekt `FIELDS`.
 Ändert sich die API, passt du nur dort an.
 
+Eine Falle, die lange falsch stand: `sdmvt` ist die Marktwertänderung der
+letzten **sieben Tage** (seven day), `tfhmvt` die der letzten **24 Stunden**
+(twenty four hour). Wer beides in denselben Topf wirft, zeigt eine
+Wochenbewegung als Tageswert an. Die App führt beide Werte getrennt.
+
+Die Zusatzendpunkte für Spielplan (`/v4/competitions/1/matchdays`) und
+Bundesliga-Tabelle (`/v4/competitions/1/table`) sind nicht dokumentiert.
+Antworten sie anders als erwartet, geben die Funktionen in
+`src/lib/kickbase.ts` `null` zurück und die Oberfläche zeigt den Abschnitt
+einfach nicht – eine fehlende Paarung darf nie das Dashboard zerlegen.
+
 Um die echten Feldnamen zu sehen, hilft das Python-Tool aus dem gleichen
 Projekt:
 
@@ -76,7 +117,17 @@ Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 ## Technisches
 
 - Next.js 14 (App Router), React 18, TypeScript, Tailwind
-- Datenabruf in Server Components, kein clientseitiger API-Zugriff
+- Datenabruf in Server Components, kein clientseitiger API-Zugriff. Client ist
+  nur, was interaktiv sein muss: Filter/Sortierung der Kaderansicht und die
+  Bild-Platzhalter.
+- Spielerfotos und Vereinswappen kommen direkt vom Kickbase-CDN. Bewusst als
+  einfaches `<img>` statt `next/image`: die CDN-Pfade sind unvollständig
+  dokumentiert, und ein 404 soll ein ruhiger Platzhalter sein statt eines
+  Serverfehlers.
+- Farben, Radien und Schriftgrößen des Corporate Designs stehen ausschließlich
+  in `tailwind.config.ts` und `src/app/globals.css`. Wer exakte Markenwerte
+  aus den offiziellen Kickbase-Brand-Guidelines hat, ändert nur diese beiden
+  Dateien – die Hexwerte hier sind aus dem App-Auftritt abgeleitet.
 - Systemschriften statt Google Fonts: kein externer Request, kein Fetch beim
   Build. Willst du Inter, leg die woff2-Dateien in `/public` und binde sie
   über `next/font/local` ein.
@@ -93,9 +144,11 @@ Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 Die verwendete API ist inoffiziell und nicht dokumentiert; Kickbase kann sie
 jederzeit ändern oder den Zugriff unterbinden. Die App liest ausschließlich
 Daten, die du in der App ohnehin siehst, und führt keine Transfers aus. Das
-Design ist an Kickbase angelehnt, verwendet aber keine Logos oder Grafiken von
-Kickbase. Nutzung auf eigenes Risiko.
+Design ist an das Kickbase-Erscheinungsbild angelehnt; Spielerfotos und
+Vereinswappen werden vom Kickbase-CDN geladen und nicht neu verteilt. Für den
+privaten Gebrauch gedacht, Nutzung auf eigenes Risiko.
 
-Die Einschätzungen sind eine Heuristik aus Marktwert-Trend, Punkteschnitt und
-Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein fallender Marktwert
-kurz vor einem guten Spielplan kann trotzdem ein Halten sein.
+Die Einschätzungen sind eine Heuristik aus Marktwert-Trend, Punkteschnitt,
+Einsatzfähigkeit und Gegnerstärke – kein Ersatz für dein eigenes Urteil. Ein
+fallender Marktwert kurz vor einem guten Spielplan kann trotzdem ein Halten
+sein.

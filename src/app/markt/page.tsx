@@ -35,19 +35,19 @@ export default async function MarktPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-5xl animate-fade-up px-4 py-6">
+      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
         <div className="mb-6 card p-4">
           <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
             <div>
               <div className="label">Aufschlag in deiner Liga</div>
-              <div className="num mt-1 text-2xl font-bold text-neon">
+              <div className="num mt-1 text-2xl font-extrabold text-kb">
                 {factor >= 1 ? "+" : ""}
                 {((factor - 1) * 100).toFixed(1)} %
               </div>
             </div>
             <div>
               <div className="label">Grundlage</div>
-              <div className="mt-1 text-data-sm text-chalk-muted">
+              <div className="mt-1 text-data-sm text-snow-muted">
                 {samples > 0
                   ? `${samples} echte Transfers`
                   : "zu wenige Transfers – Schätzwert +5 %"}
@@ -55,13 +55,13 @@ export default async function MarktPage() {
             </div>
             <div>
               <div className="label">Verfügbar</div>
-              <div className="num mt-1 text-data-sm text-chalk-muted">
+              <div className="num mt-1 text-data-sm text-snow-muted">
                 {budget !== null ? eur(budget) : "unbekannt"}
               </div>
             </div>
           </div>
 
-          <p className="mt-3 border-t border-pitch-700 pt-3 text-data-xs leading-relaxed text-chalk-faint">
+          <p className="mt-3 border-t border-night-700 pt-3 text-data-xs leading-relaxed text-snow-faint">
             So viel über Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
             Das Maximalgebot leitet sich daraus ab. Die verdeckten Gebote deiner
             Mitspieler kennt niemand – auch diese App nicht.
@@ -69,10 +69,10 @@ export default async function MarktPage() {
         </div>
 
         {buys.length > 0 && (
-          <div className="mb-6 rounded-card border border-neon/25 bg-neon/5 px-4 py-3">
+          <div className="mb-6 rounded-card border border-kb/25 bg-kb/5 px-4 py-3">
             <p className="text-data-sm">
-              <span className="font-semibold text-neon">Lohnt sich heute:</span>{" "}
-              <span className="text-chalk-muted">
+              <span className="font-semibold text-kb">Lohnt sich heute:</span>{" "}
+              <span className="text-snow-muted">
                 {buys.map((p) => p.name).join(", ")}
               </span>
             </p>
@@ -80,8 +80,8 @@ export default async function MarktPage() {
         )}
 
         <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-pitch-700 px-4 py-3">
-            <h2 className="font-bold tracking-tight">Transfermarkt</h2>
+          <div className="flex items-baseline justify-between border-b border-night-700 px-4 py-3">
+            <h2 className="display text-base">Transfermarkt</h2>
             <span className="label">Beste Ziele zuerst</span>
           </div>
 

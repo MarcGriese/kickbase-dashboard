@@ -1,38 +1,56 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Kickbase Corporate Design.
+ *
+ * Die Marke lebt von drei Dingen: fast schwarze Flaechen, ein einziges
+ * signalgruenes Akzentgruen und sehr enge, laut gesetzte Versalien fuer
+ * Labels. Alles andere ist Grauwert.
+ *
+ * Die Hexwerte unten sind aus dem App-/Web-Auftritt abgeleitet. Wenn du
+ * Zugriff auf brand.kickbase.com hast und exakte Werte willst: nur diese
+ * Datei anfassen, der Rest der App benutzt ausschliesslich diese Tokens.
+ */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Kickbase-Look: tiefes Blauschwarz + ein einziger Neongruen-Akzent.
-        pitch: {
-          950: "#080B0F", // Seitenhintergrund
-          900: "#0D1117", // App-Shell
-          850: "#12181F", // Karte
-          800: "#171E27", // Karte (hover)
-          700: "#232C38", // Rahmen
-          600: "#33404F", // Rahmen (kraeftig)
+        // Flaechen - von der Seite bis zum kraeftigen Rahmen.
+        night: {
+          950: "#08090B", // Seitenhintergrund
+          900: "#0D0F12", // App-Shell / Kopfzeile
+          850: "#14171C", // Karte
+          800: "#1B1F26", // Karte (hover) / Chip
+          700: "#262B34", // Rahmen
+          600: "#39404C", // Rahmen (kraeftig)
         },
-        neon: {
-          DEFAULT: "#00E087", // Akzent / positiv
-          dim: "#00B36C",
-          glow: "rgba(0, 224, 135, 0.16)",
+        // Kickbase-Gruen: Akzent, Marke, positive Zahlen.
+        kb: {
+          DEFAULT: "#14E56D",
+          dim: "#0FC65E",
+          deep: "#0A8F44",
         },
-        loss: {
-          DEFAULT: "#FF4757", // negativer Marktwert
-          dim: "#C42F3C",
+        // Signalfarben fuer Zahlen und Gegnerstaerke.
+        down: {
+          DEFAULT: "#FF4D5E",
+          dim: "#C4323F",
         },
-        chalk: {
-          DEFAULT: "#FFFFFF",
-          muted: "#8A97A8",
-          faint: "#5A6675",
+        warn: {
+          DEFAULT: "#FFB020",
+          dim: "#C4831A",
+        },
+        // Schrift.
+        snow: {
+          DEFAULT: "#F5F7FA",
+          muted: "#98A2B3",
+          faint: "#667085",
         },
       },
       fontFamily: {
         // Systemschrift: kein Google-Fetch beim Build, keine externe Anfrage
-        // im Browser. Willst du Inter, leg die woff2 in /public und binde sie
-        // ueber next/font/local ein - dann hier "var(--font-inter)" voranstellen.
+        // im Browser. Willst du die Hausschrift, leg die woff2 in /public und
+        // binde sie ueber next/font/local ein - dann hier voranstellen.
         sans: [
           "ui-sans-serif",
           "system-ui",
@@ -51,11 +69,11 @@ const config: Config = {
         "data-sm": ["0.8125rem", { lineHeight: "1.125rem" }],
       },
       boxShadow: {
-        card: "0 1px 2px rgba(0,0,0,0.4)",
-        neon: "0 0 0 1px rgba(0,224,135,0.35), 0 0 24px rgba(0,224,135,0.12)",
+        card: "0 1px 2px rgba(0,0,0,0.5)",
+        kb: "0 0 0 1px rgba(20,229,109,0.35), 0 0 24px rgba(20,229,109,0.12)",
       },
       borderRadius: {
-        card: "0.875rem",
+        card: "1rem",
       },
       keyframes: {
         "fade-up": {
@@ -63,9 +81,9 @@ const config: Config = {
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "pulse-ring": {
-          "0%": { boxShadow: "0 0 0 0 rgba(0,224,135,0.4)" },
-          "70%": { boxShadow: "0 0 0 10px rgba(0,224,135,0)" },
-          "100%": { boxShadow: "0 0 0 0 rgba(0,224,135,0)" },
+          "0%": { boxShadow: "0 0 0 0 rgba(20,229,109,0.4)" },
+          "70%": { boxShadow: "0 0 0 10px rgba(20,229,109,0)" },
+          "100%": { boxShadow: "0 0 0 0 rgba(20,229,109,0)" },
         },
       },
       animation: {
