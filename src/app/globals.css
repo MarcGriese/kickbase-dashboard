@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-pitch-950 text-chalk antialiased;
+    /* Sehr dezenter Rasenschimmer am oberen Rand - der einzige Verlauf im UI. */
+    background-image: radial-gradient(
+      120% 60% at 50% -10%,
+      rgba(0, 224, 135, 0.07) 0%,
+      transparent 60%
+    );
+    background-attachment: fixed;
+  }
+  /* Sichtbarer Tastaturfokus - ueberall, nicht nur wo es auffaellt. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-neon ring-offset-2 ring-offset-pitch-950;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-pitch-700 bg-pitch-850 shadow-card;
+  }
+  .label {
+    @apply text-data-xs font-semibold uppercase tracking-wider text-chalk-faint;
+  }
+  /* Tabellarische Ziffern: Marktwerte springen beim Aktualisieren nicht. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
