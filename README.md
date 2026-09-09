@@ -159,6 +159,65 @@ Lädt ein Bild trotzdem nicht, fängt `PlayerAvatar` das ab und zeigt die
 Initialen auf einer aus dem Namen abgeleiteten Farbe. Die Zeile bleibt
 lesbar, auch wenn das CDN schweigt.
 
+## Corporate Design
+
+Die Oberfläche folgt den offiziellen Kickbase Brand Guidelines
+(brand.kickbase.com), nicht mehr einer Annäherung ans App-Aussehen. Alle
+Werte liegen in `tailwind.config.ts`.
+
+**Palette.** KB Black `#131417`, KB White `#DEE4EC` (kein reines Weiß), KB
+Live Red `#FF4600`, dazu KB Dark Grey `#474B4E`, KB Grey `#7E8187` und KB
+Light Grey `#A8ADB4`. Zwischenstufen für Karten und Rahmen sind keine
+erfundenen Farben, sondern Mischungen von KB Dark Grey über KB Black – die
+Schichtung, die die Guidelines ausdrücklich erlauben.
+
+**Rot bedeutet nicht "negativ".** Es steht laut Guidelines für "moments of
+importance, excitement, and emphasis". Und die Marke kennt kein Grün, mit dem
+die App vorher Gewinne markiert hat. Deshalb die Aufteilung:
+
+- Richtung über Helligkeit plus Vorzeichen: Gewinn KB White, Verlust KB Light
+  Grey, Stillstand KB Grey. Auch ohne Farbunterscheidung lesbar.
+- KB Live Red nur für Handlung: Verkaufen, Kaufen, Ausfall, hängender
+  Schnappschuss, Tastaturfokus. An einem normalen Spieltag sind das eine
+  Handvoll Elemente.
+
+**Timestamps.** Das Plus/Minus-Motiv der Guidelines markiert im Original
+Spielereignisse. Hier markiert es die Bewegung eines Marktwerts – derselbe
+Gedanke. Gesetzt in Versalien, wie vorgegeben.
+
+**Punktraster.** Die analytische Schicht des Systems liegt als CSS-Raster
+unter allem. KB Dark Grey auf KB Black, eine der freigegebenen Kombinationen.
+Die Rastergröße ist ein einziger Token (`spacing.dot`) und wird nirgends
+skaliert, gedreht oder verzerrt – die Guidelines verlangen das ausdrücklich.
+Rot ist als Rasterfarbe verboten und kommt hier nicht vor.
+
+**Kontrast.** KB Dark Grey ist eine Strukturfarbe und wird nie für Text
+benutzt: auf KB Black erreicht es nur 2,09:1. Als Text bleiben KB White
+(14,4:1), KB Light Grey (8,2:1), KB Live Red (5,4:1) und KB Grey (4,7:1) –
+alle über der Schwelle.
+
+### Was bewusst fehlt: die Hausschriften
+
+KB Pitch und KB Volksans sind **nicht** eingebunden. Die Community Policy im
+Logo-Kit verbietet das:
+
+> Use of the Kickbase font → the font is exclusive to our brand.
+
+Übernommen sind deshalb nur die Satzregeln, gesetzt in der Systemschrift:
+Headline-Zeilenabstand 0.9 und Versalien, Subheader 1.18, Fließtext 1.4 in
+Satzschreibung, Labels und Timestamps in Versalien, tabellarische Ziffern für
+alle Metriken. Das hält nebenbei die Zusage ein, dass die App keine externe
+Anfrage stellt.
+
+### Logo
+
+Vier SVGs aus dem offiziellen Community Logo Kit liegen unverändert in
+`public/brand/`. Näheres in `public/brand/README.md`, inklusive dessen, was
+die Policy erlaubt und verbietet. Kurz: privat und nicht-kommerziell ja,
+Umfärben oder Verzerren nein. `BrandLogo` bindet die Dateien deshalb als
+`<img>` ein und skaliert nur proportional – es gibt gar keine Prop, mit der
+sich das Logo verzerren ließe.
+
 ## Technisches
 
 - Next.js 14 (App Router), React 18, TypeScript, Tailwind
@@ -186,9 +245,15 @@ lesbar, auch wenn das CDN schweigt.
 
 Die verwendete API ist inoffiziell und nicht dokumentiert; Kickbase kann sie
 jederzeit ändern oder den Zugriff unterbinden. Die App liest ausschließlich
-Daten, die du in der App ohnehin siehst, und führt keine Transfers aus. Das
-Design ist an Kickbase angelehnt, verwendet aber keine Logos oder Grafiken von
-Kickbase. Nutzung auf eigenes Risiko.
+Daten, die du in der App ohnehin siehst, und führt keine Transfers aus.
+Nutzung auf eigenes Risiko.
+
+Das Design folgt den Kickbase Brand Guidelines, das Logo stammt aus dem
+offiziellen Community Logo Kit. Dessen Policy erlaubt private, nicht-
+kommerzielle Nutzung – genau das ist dieses lokal laufende Dashboard. Die
+Hausschriften sind ausgenommen und deshalb nicht eingebunden. Sollte das
+Projekt je öffentlich gehostet oder kommerziell werden, müssen die Dateien
+in `public/brand/` vorher raus.
 
 Die Einschätzungen sind eine Heuristik aus Marktwert-Verlauf, Punkten je
 Million und Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein

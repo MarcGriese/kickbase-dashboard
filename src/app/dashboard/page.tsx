@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { SquadRow, StatTile, Empty, SnapshotNotice } from "@/components/ui";
+import {
+  SquadRow,
+  StatTile,
+  Empty,
+  SnapshotNotice,
+  ActionStrip,
+} from "@/components/ui";
 import { getToken, getLeagueId } from "@/lib/session";
 import { getSquad, getBudget, KickbaseError } from "@/lib/kickbase";
 import { rateOwn, medianPpm } from "@/lib/advisor";
@@ -66,21 +72,17 @@ export default async function DashboardPage() {
           <StatTile label="Teamwert" value={eur(teamValue)} />
           <StatTile
             label="Heute"
-            value={(dayTotal > 0 ? "+" : "") + eur(dayTotal)}
-            accent={dayTotal > 0}
+            value={eur(Math.abs(dayTotal))}
+            delta={dayTotal}
             hint="Marktwert über alle Spieler"
           />
           <StatTile
             label={teamChange ? `Seit ${teamChange.day.slice(5)}` : "Verlauf"}
-            value={
-              teamChange
-                ? (teamChange.delta > 0 ? "+" : "") + eur(teamChange.delta)
-                : "–"
-            }
-            accent={!!teamChange && teamChange.delta > 0}
+            value={teamChange ? eur(Math.abs(teamChange.delta)) : "–"}
+            delta={teamChange ? teamChange.delta : undefined}
             hint={
               teamChange
-                ? `${teamChange.pct > 0 ? "+" : ""}${teamChange.pct.toFixed(1)} % in ${teamChange.ageDays} Tagen`
+                ? `${Math.abs(teamChange.pct).toFixed(1)} % in ${teamChange.ageDays} Tagen`
                 : "noch kein gespeicherter Stand"
             }
           />
@@ -102,20 +104,11 @@ export default async function DashboardPage() {
           count={countSnapshots(leagueId)}
         />
 
-        {sells.length > 0 && (
-          <div className="mb-6 rounded-card border border-loss/25 bg-loss/5 px-4 py-3">
-            <p className="text-data-sm">
-              <span className="font-semibold text-loss">Heute trennen:</span>{" "}
-              <span className="text-chalk-muted">
-                {sells.map((p) => p.name).join(", ")}
-              </span>
-            </p>
-          </div>
-        )}
+        <ActionStrip title="Heute trennen" names={sells.map((p) => p.name)} />
 
         <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-pitch-700 px-4 py-3">
-            <h2 className="font-bold tracking-tight">Dein Kader</h2>
+          <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
+            <h2 className="kb-headline">Dein Kader</h2>
             <span className="label">Verkaufskandidaten zuerst</span>
           </div>
 
@@ -133,7 +126,7 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <p className="mt-4 text-data-xs leading-relaxed text-chalk-faint">
+        <p className="mt-4 max-w-2xl text-data-xs leading-relaxed text-kb-grey">
           Die Einschätzung gewichtet Marktwert-Verlauf, Punkte je Million und
           Einsatzfähigkeit. P/Mio wird gegen den Median deines eigenen Kaders
           gemessen, nicht gegen eine feste Zahl – was ein guter Gegenwert ist,
