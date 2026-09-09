@@ -5,3 +5,10 @@ out
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Der Schnappschuss-Speicher. Deine Daten, nicht der Quellcode -
+# und die -wal/-shm-Dateien gehoeren erst recht nicht ins Repo.
+data/
+*.db
+*.db-wal
+*.db-shm

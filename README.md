@@ -35,11 +35,79 @@ Einstellungen → Profil ein eigenes Passwort.
 
 ## Seiten
 
-| Route        | Inhalt                                                          |
-| ------------ | --------------------------------------------------------------- |
-| `/dashboard` | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Tagesdelta    |
-| `/markt`     | Transfermarkt mit Kaufempfehlung und Maximalgebot                |
-| `/liga`      | Tabelle mit Rückstand auf Platz 1                                |
+| Route            | Inhalt                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `/dashboard`     | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Verlauf, P/Mio    |
+| `/markt`         | Transfermarkt mit Kaufempfehlung und Maximalgebot                    |
+| `/liga`          | Tabelle mit Rückstand auf Platz 1                                    |
+| `/api/snapshot`  | GET: Zustand des Speichers. POST: Schnappschuss anlegen              |
+
+## Der Schnappschuss-Speicher
+
+Kickbase liefert immer nur das Jetzt. `sdmvt` ist die Marktwertänderung seit
+gestern – mehr Gedächtnis hat die API nicht. Damit siehst du keinen
+dreitägigen Rutsch, keine Erholung und nicht, welcher Spieler still vor sich
+hin wächst.
+
+Deshalb legt die App eine lokale SQLite-Datei an (`data/kaderzentrale.db`,
+über `KB_DB_PATH` verschiebbar) und schreibt dort **eine Zeile pro Liga und
+Kalendertag**: Kader und Transfermarkt mit Marktwert, Punkten, Schnitt und
+Status, dazu Teamwert und Budget. Läuft der Job zweimal am selben Tag,
+ersetzt der zweite Lauf den ersten.
+
+Bei jedem Seitenaufruf hält die App die eben geholten Werte gegen den
+gespeicherten Stand – gegen gestern, gegen vor einer Woche und gegen vor
+einem Monat. Das kostet drei Abfragen, egal wie groß der Kader ist. Solange
+nichts gespeichert ist, steht in der Verlaufsspalte ein Strich und die App
+sagt das oben auch: sie tut nicht so, als wüsste sie etwas, das sie noch
+nicht weiß.
+
+Der Verlauf fließt in die Bewertung ein. Der Tagesschritt allein ist
+verrauscht; eine Woche in dieselbe Richtung ist ein Signal. Wendepunkte
+("dreht heute nach oben", "knickt heute ein") tauchen als Begründung auf.
+
+### Wann geschrieben wird
+
+**Beim Serverstart** (`src/instrumentation.ts`): öffnet und migriert die
+Datei und meldet im Log, wie alt der gespeicherte Stand ist. Fehlt der
+heutige Schnappschuss und liegen `KB_EMAIL`/`KB_PASSWORD` vor, holt er ihn
+gleich. Ohne diese Zugangsdaten kann er nichts abrufen – beim Start gibt es
+keine Browser-Sitzung und damit keinen Token. Abschaltbar mit
+`KB_SNAPSHOT_ON_START=0`.
+
+**Nächtlich per Cron**: `POST /api/snapshot` mit
+`Authorization: Bearer $SNAPSHOT_SECRET`. Der Job meldet sich selbst mit den
+hinterlegten Zugangsdaten an.
+
+```cron
+# Kurz nach der nächtlichen Marktwert-Aktualisierung von Kickbase.
+30 3 * * *  cd /pfad/zu/kickbase-dashboard && npm run snapshot
+```
+
+`npm run snapshot` spricht den laufenden Server an (`KB_URL` setzen, wenn er
+nicht auf Port 3000 hört). Der Server muss also laufen – auf einem Rechner,
+der nachts an ist, oder als Dienst.
+
+**Von Hand**: angemeldet im Browser genügt ein `POST /api/snapshot` ohne
+Geheimnis. `?force=1` überschreibt einen Stand, der heute schon geschrieben
+wurde.
+
+## Punkte pro Million
+
+Der Punkteschnitt allein führt in die Irre: die eigentliche Währung ist der
+Ertrag je gebundenem Euro. Ein Abwehrspieler mit mäßigem Schnitt zum halben
+Preis schlägt den teuren Stürmer, weil das freie Budget den nächsten Steiger
+kauft.
+
+Bewertet wird immer **gegen den Median der Gruppe**, nie gegen eine feste
+Zahl – was ein guter Gegenwert ist, hängt am Preisniveau der Saison. Im
+Kader ist die Gruppe dein eigener Kader, auf dem Transfermarkt das aktuelle
+Angebot. Dort zählt der Ertrag außerdem auf den **Preis**, nicht auf den
+Marktwert: ein Aufschlag frisst die Rendite, ein Schnäppchen verbessert sie.
+
+Spieler ohne einen einzigen Einsatz ziehen den Median nicht nach unten und
+werden auch nicht dafür abgestraft – sie bekommen den Hinweis "noch keine
+Punkte".
 
 ## Wie das Maximalgebot zustande kommt
 
@@ -73,10 +141,95 @@ teilweise mit Beispielantworten belegt – dort sind die Zuordnungen in
 `fields.ts` und `advisor.ts` defensiv geraten und einen Abgleich wert. Der
 Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 
+## Spielerfotos und Wappen
+
+Vorher wurde gar kein Bild gerendert: `pick(raw, "image")` wurde ausgelesen
+und bis in `RatedPlayer.image` durchgereicht, aber keine einzige Komponente
+hat je ein `<img>` erzeugt. `teamId` wurde nicht einmal gelesen.
+
+Jetzt gilt: was die API liefert, gewinnt. Das Foto kommt aus `pim`, das
+Wappen aus `tim`, sofern vorhanden. Nur wenn Kickbase nichts mitschickt,
+wird das Wappen aus der Team-ID gebaut (`KB_TEAM_LOGO_TEMPLATE`). Relative
+Pfade bekommen das CDN davor, vollständige URLs bleiben unangetastet.
+
+Bewusst ein einfaches `<img>` statt `next/image`: Kickbase liefert über
+wechselnde CDN-Hosts aus, und `next/image` verweigert jeden Host, der nicht
+in `next.config.mjs` steht – sichtbar als leere Fläche, ohne Fehlermeldung.
+Lädt ein Bild trotzdem nicht, fängt `PlayerAvatar` das ab und zeigt die
+Initialen auf einer aus dem Namen abgeleiteten Farbe. Die Zeile bleibt
+lesbar, auch wenn das CDN schweigt.
+
+## Corporate Design
+
+Die Oberfläche folgt den offiziellen Kickbase Brand Guidelines
+(brand.kickbase.com), nicht mehr einer Annäherung ans App-Aussehen. Alle
+Werte liegen in `tailwind.config.ts`.
+
+**Palette.** KB Black `#131417`, KB White `#DEE4EC` (kein reines Weiß), KB
+Live Red `#FF4600`, dazu KB Dark Grey `#474B4E`, KB Grey `#7E8187` und KB
+Light Grey `#A8ADB4`. Zwischenstufen für Karten und Rahmen sind keine
+erfundenen Farben, sondern Mischungen von KB Dark Grey über KB Black – die
+Schichtung, die die Guidelines ausdrücklich erlauben.
+
+**Rot bedeutet nicht "negativ".** Es steht laut Guidelines für "moments of
+importance, excitement, and emphasis". Und die Marke kennt kein Grün, mit dem
+die App vorher Gewinne markiert hat. Deshalb die Aufteilung:
+
+- Richtung über Helligkeit plus Vorzeichen: Gewinn KB White, Verlust KB Light
+  Grey, Stillstand KB Grey. Auch ohne Farbunterscheidung lesbar.
+- KB Live Red nur für Handlung: Verkaufen, Kaufen, Ausfall, hängender
+  Schnappschuss, Tastaturfokus. An einem normalen Spieltag sind das eine
+  Handvoll Elemente.
+
+**Timestamps.** Das Plus/Minus-Motiv der Guidelines markiert im Original
+Spielereignisse. Hier markiert es die Bewegung eines Marktwerts – derselbe
+Gedanke. Gesetzt in Versalien, wie vorgegeben.
+
+**Punktraster.** Die analytische Schicht des Systems liegt als CSS-Raster
+unter allem. KB Dark Grey auf KB Black, eine der freigegebenen Kombinationen.
+Die Rastergröße ist ein einziger Token (`spacing.dot`) und wird nirgends
+skaliert, gedreht oder verzerrt – die Guidelines verlangen das ausdrücklich.
+Rot ist als Rasterfarbe verboten und kommt hier nicht vor.
+
+**Kontrast.** KB Dark Grey ist eine Strukturfarbe und wird nie für Text
+benutzt: auf KB Black erreicht es nur 2,09:1. Als Text bleiben KB White
+(14,4:1), KB Light Grey (8,2:1), KB Live Red (5,4:1) und KB Grey (4,7:1) –
+alle über der Schwelle.
+
+### Was bewusst fehlt: die Hausschriften
+
+KB Pitch und KB Volksans sind **nicht** eingebunden. Die Community Policy im
+Logo-Kit verbietet das:
+
+> Use of the Kickbase font → the font is exclusive to our brand.
+
+Übernommen sind deshalb nur die Satzregeln, gesetzt in der Systemschrift:
+Headline-Zeilenabstand 0.9 und Versalien, Subheader 1.18, Fließtext 1.4 in
+Satzschreibung, Labels und Timestamps in Versalien, tabellarische Ziffern für
+alle Metriken. Das hält nebenbei die Zusage ein, dass die App keine externe
+Anfrage stellt.
+
+### Logo
+
+Vier SVGs aus dem offiziellen Community Logo Kit liegen unverändert in
+`public/brand/`. Näheres in `public/brand/README.md`, inklusive dessen, was
+die Policy erlaubt und verbietet. Kurz: privat und nicht-kommerziell ja,
+Umfärben oder Verzerren nein. `BrandLogo` bindet die Dateien deshalb als
+`<img>` ein und skaliert nur proportional – es gibt gar keine Prop, mit der
+sich das Logo verzerren ließe.
+
 ## Technisches
 
 - Next.js 14 (App Router), React 18, TypeScript, Tailwind
 - Datenabruf in Server Components, kein clientseitiger API-Zugriff
+- better-sqlite3 statt `node:sqlite`: letzteres braucht in Node 22 noch
+  `--experimental-sqlite`, was `next dev` unbrauchbar macht.
+- `instrumentation.ts` wird von Next für beide Laufzeiten übersetzt, läuft
+  aber nur unter Node. webpack folgt dem dynamischen Import trotzdem und
+  zieht SQLite ins Edge-Bundle, wo `fs` fehlt. Deshalb biegt
+  `next.config.mjs` `better-sqlite3`, `fs` und `path` dort auf ein leeres
+  Modul um, und `db.ts` importiert ohne `node:`-Präfix – das Schema lehnt
+  webpack ab, bevor es zur Alias-Auflösung kommt.
 - Systemschriften statt Google Fonts: kein externer Request, kein Fetch beim
   Build. Willst du Inter, leg die woff2-Dateien in `/public` und binde sie
   über `next/font/local` ein.
@@ -92,10 +245,22 @@ Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 
 Die verwendete API ist inoffiziell und nicht dokumentiert; Kickbase kann sie
 jederzeit ändern oder den Zugriff unterbinden. Die App liest ausschließlich
-Daten, die du in der App ohnehin siehst, und führt keine Transfers aus. Das
-Design ist an Kickbase angelehnt, verwendet aber keine Logos oder Grafiken von
-Kickbase. Nutzung auf eigenes Risiko.
+Daten, die du in der App ohnehin siehst, und führt keine Transfers aus.
+Nutzung auf eigenes Risiko.
 
-Die Einschätzungen sind eine Heuristik aus Marktwert-Trend, Punkteschnitt und
-Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein fallender Marktwert
-kurz vor einem guten Spielplan kann trotzdem ein Halten sein.
+Das Design folgt den Kickbase Brand Guidelines, das Logo stammt aus dem
+offiziellen Community Logo Kit. Dessen Policy erlaubt private, nicht-
+kommerzielle Nutzung – genau das ist dieses lokal laufende Dashboard. Die
+Hausschriften sind ausgenommen und deshalb nicht eingebunden. Sollte das
+Projekt je öffentlich gehostet oder kommerziell werden, müssen die Dateien
+in `public/brand/` vorher raus.
+
+Die Einschätzungen sind eine Heuristik aus Marktwert-Verlauf, Punkten je
+Million und Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein
+fallender Marktwert kurz vor einem guten Spielplan kann trotzdem ein Halten
+sein. Die App kennt den Spielplan nicht.
+
+Der Schnappschuss-Speicher liegt unverschlüsselt auf deiner Platte und
+enthält nur Daten, die du in der Kickbase-App ohnehin siehst. Er ist von
+`.gitignore` ausgenommen – lösch die Datei, wenn du bei null anfangen
+willst, das Schema legt sich beim nächsten Start neu an.

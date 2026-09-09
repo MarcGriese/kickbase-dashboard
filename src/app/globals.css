@@ -2,36 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Kickbase Corporate Design - Umsetzung der Guidelines.
+ *
+ * Das Identitaetssystem kennt zwei Schichten:
+ *   01 ANALYTICAL - das Punktraster. "A database of what happened on the
+ *      pitch", darunterliegend, sachlich.
+ *   02 EMOTIONAL  - Headline-Typo und Bild, darueber gelegt.
+ *
+ * Ein Daten-Dashboard ist fast vollstaendig Schicht 01. Deshalb liegt das
+ * Raster hier unter allem, und die zweite Schicht bleibt auf das reduziert,
+ * was wirklich Aufmerksamkeit verlangt.
+ */
+
 @layer base {
   html {
     color-scheme: dark;
   }
+
   body {
-    @apply bg-pitch-950 text-chalk antialiased;
-    /* Sehr dezenter Rasenschimmer am oberen Rand - der einzige Verlauf im UI. */
+    @apply bg-kb-black text-kb-white antialiased;
+
+    /**
+     * Das Punktraster (Guidelines, Abschnitt System).
+     *
+     * Farbwahl nach der Freigabeliste: "KB Dark Grey grid on KB Grey and
+     * KB Black". KB Live Red ist als Rasterfarbe ausdruecklich verboten
+     * ("Don't use KB Live Red grid ever") - rot sind nur Muster, nie das
+     * Raster selbst.
+     *
+     * Die Rastergroesse ist bewusst fest verdrahtet und wird nirgends
+     * skaliert: "The grids size should remain consistent across all brand
+     * applications." Nicht gedreht, nicht verzerrt.
+     */
     background-image: radial-gradient(
-      120% 60% at 50% -10%,
-      rgba(0, 224, 135, 0.07) 0%,
-      transparent 60%
+      circle at center,
+      theme("colors.kb.grey.dark") 1.1px,
+      transparent 1.2px
     );
+    background-size: theme("spacing.dot") theme("spacing.dot");
+    background-position: center top;
     background-attachment: fixed;
   }
-  /* Sichtbarer Tastaturfokus - ueberall, nicht nur wo es auffaellt. */
+
+  /**
+   * Tastaturfokus in KB Live Red. Ein Fokus ist genau der Fall, den die
+   * Guidelines mit "moments of importance" meinen - und er ist selten
+   * genug, dass der sparsame Umgang mit dem Akzent gewahrt bleibt.
+   */
   :focus-visible {
-    @apply outline-none ring-2 ring-neon ring-offset-2 ring-offset-pitch-950;
+    @apply outline-none ring-2 ring-kb-red ring-offset-2 ring-offset-kb-black;
   }
 }
 
 @layer components {
+  /**
+   * Karten sind KB Dark Grey ueber KB Black - die von den Guidelines
+   * erlaubte Schichtung fuer Tiefe und Struktur. Sie sind leicht
+   * durchscheinend, damit das Raster als unterste Schicht sichtbar bleibt.
+   */
   .card {
-    @apply rounded-card border border-pitch-700 bg-pitch-850 shadow-card;
+    @apply rounded-card border border-kb-line bg-kb-surface/90 shadow-card backdrop-blur-[1px];
   }
+
+  /**
+   * Label und Timestamp folgen der Vorgabe, Metriken in Versalien zu
+   * setzen: "We pair these plus and minus icons with KB Volksans in full
+   * uppercase."
+   */
   .label {
-    @apply text-data-xs font-semibold uppercase tracking-wider text-chalk-faint;
+    @apply text-data-xs font-semibold uppercase tracking-wider text-kb-grey;
   }
-  /* Tabellarische Ziffern: Marktwerte springen beim Aktualisieren nicht. */
+
+  /**
+   * Headlines: Leading 0.9 und Versalien, wie fuer KB Pitch vorgegeben.
+   * Die Schrift selbst ist die Systemschrift - siehe tailwind.config.ts.
+   */
+  .kb-headline {
+    @apply text-headline-sm font-bold uppercase;
+  }
+
+  /**
+   * Tabellarische Ziffern. Entspricht der Guideline, in Metriken die
+   * monospaced Alternativen fuer 1 und 0 zu setzen - mit einer Systemschrift
+   * ist tabular-nums die naechstliegende Entsprechung. Marktwerte springen
+   * so beim Aktualisieren nicht.
+   */
   .num {
     font-variant-numeric: tabular-nums;
+  }
+
+  /** Eingabefelder - ein Stil, an drei Stellen benutzt. */
+  .field {
+    @apply w-full rounded-lg border border-kb-line-strong bg-kb-black/60 px-3 py-2.5
+           text-body placeholder:text-kb-grey focus:border-kb-red;
   }
 }
 

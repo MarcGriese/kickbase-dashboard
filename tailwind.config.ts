@@ -1,38 +1,87 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Kickbase Corporate Design.
+ *
+ * Die Werte stammen aus den offiziellen Brand Guidelines (brand.kickbase.com,
+ * Seiten Colour und System), nicht aus einer Annaeherung ans App-Aussehen.
+ *
+ * Kernaussage der Guidelines: "At its core, Kickbase is always black and
+ * white. We use color sparingly and purposefully for maximum impact."
+ * KB Live Red ist der einzige Akzent und steht fuer "moments of importance,
+ * excitement, and emphasis" - nicht fuer Dekoration.
+ *
+ * Was hier NICHT steht: die Hausschriften KB Pitch und KB Volksans. Die
+ * Community Policy im Logo-Kit verbietet ihre Nutzung ausdruecklich
+ * ("Use of the Kickbase font -> the font is exclusive to our brand").
+ * Uebernommen sind deshalb die Satzregeln, nicht die Schriften selbst.
+ */
+
+/**
+ * Die Guidelines kennen nur sechs Farben. Fuer Karten und Rahmen braucht ein
+ * Dashboard Zwischenstufen - die entstehen ausschliesslich durch Mischung von
+ * KB Dark Grey ueber KB Black. Das ist die von den Guidelines ausdruecklich
+ * erlaubte Schichtung: "Subtle, low-contrast pairings like KB Dark Grey on
+ * KB Black can be used for layering, depth, and background structure."
+ * Keine erfundenen Farbtoene, nur Anteile zweier Markenfarben.
+ */
+const BLACK = [19, 20, 23] as const; // #131417
+const DARK_GREY = [71, 75, 78] as const; // #474B4E
+
+function layer(alpha: number): string {
+  const mix = BLACK.map((b, i) =>
+    Math.round(b + (DARK_GREY[i] - b) * alpha)
+  );
+  return `#${mix.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Kickbase-Look: tiefes Blauschwarz + ein einziger Neongruen-Akzent.
-        pitch: {
-          950: "#080B0F", // Seitenhintergrund
-          900: "#0D1117", // App-Shell
-          850: "#12181F", // Karte
-          800: "#171E27", // Karte (hover)
-          700: "#232C38", // Rahmen
-          600: "#33404F", // Rahmen (kraeftig)
-        },
-        neon: {
-          DEFAULT: "#00E087", // Akzent / positiv
-          dim: "#00B36C",
-          glow: "rgba(0, 224, 135, 0.16)",
-        },
-        loss: {
-          DEFAULT: "#FF4757", // negativer Marktwert
-          dim: "#C42F3C",
-        },
-        chalk: {
-          DEFAULT: "#FFFFFF",
-          muted: "#8A97A8",
-          faint: "#5A6675",
+        kb: {
+          // Die sechs Markenfarben, unveraendert aus den Guidelines.
+          black: "#131417", // KB Black      RGB 19/20/23
+          white: "#DEE4EC", // KB White      RGB 222/228/236 - kein reines Weiss
+          red: "#FF4600", // KB Live Red   RGB 255/70/0, PMS Orange 021 C
+          grey: {
+            dark: "#474B4E", // KB Dark Grey   RGB 71/75/78
+            DEFAULT: "#7E8187", // KB Grey        RGB 126/129/135
+            light: "#A8ADB4", // KB Light Grey  RGB 168/173/180
+          },
+
+          /**
+           * KB Dark Grey ist eine STRUKTURFARBE, keine Textfarbe.
+           * Auf KB Black kommt sie auf 2,09:1 und liegt damit weit unter den
+           * 4,5:1, die lesbarer Fliesstext braucht. Die Guidelines geben die
+           * Paarung nur fuer "layering, depth, and background structure" frei.
+           *
+           * Als Text taugen auf KB Black:
+           *   KB White       14,4:1
+           *   KB Light Grey   8,2:1
+           *   KB Live Red     5,4:1
+           *   KB Grey         4,7:1
+           */
+
+          // Schichtung: KB Dark Grey ueber KB Black, in Stufen.
+          surface: layer(0.07), // Karte
+          raised: layer(0.12), // Karte im Hover
+          line: layer(0.26), // Rahmen
+          "line-strong": layer(0.42), // Rahmen, betont
         },
       },
+
       fontFamily: {
-        // Systemschrift: kein Google-Fetch beim Build, keine externe Anfrage
-        // im Browser. Willst du Inter, leg die woff2 in /public und binde sie
-        // ueber next/font/local ein - dann hier "var(--font-inter)" voranstellen.
+        /**
+         * KB Pitch und KB Volksans sind laut Community Policy tabu. Statt
+         * einer Nachahmung steht hier weiter die Systemschrift - das haelt
+         * ausserdem die Zusage ein, dass die App keine externe Anfrage stellt.
+         *
+         * Uebernommen sind die Satzregeln der Guidelines: Headlines eng
+         * gesetzt und versal, Fliesstext mit weitem Zeilenabstand. Siehe die
+         * Zeilenhoehen unten und .kb-headline in globals.css.
+         */
         sans: [
           "ui-sans-serif",
           "system-ui",
@@ -45,32 +94,41 @@ const config: Config = {
         ],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
+
       fontSize: {
+        // Guidelines: Headline-Leading 0.9, Subheader 1.18, Body 1.4.
+        headline: ["2.25rem", { lineHeight: "0.9", letterSpacing: "-0.02em" }],
+        "headline-sm": ["1.5rem", { lineHeight: "0.9", letterSpacing: "-0.015em" }],
+        subhead: ["1.0625rem", { lineHeight: "1.18" }],
+        body: ["0.9375rem", { lineHeight: "1.4" }],
         // Enge, datenlastige Skala - die Zahlen sind der Inhalt.
         "data-xs": ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.04em" }],
         "data-sm": ["0.8125rem", { lineHeight: "1.125rem" }],
       },
-      boxShadow: {
-        card: "0 1px 2px rgba(0,0,0,0.4)",
-        neon: "0 0 0 1px rgba(0,224,135,0.35), 0 0 24px rgba(0,224,135,0.12)",
+
+      spacing: {
+        // Das Punktraster. Die Guidelines verlangen eine ueber alle
+        // Anwendungen konstante Rastergroesse - deshalb genau ein Wert.
+        dot: "24px",
       },
+
       borderRadius: {
-        card: "0.875rem",
+        // Die Logo-Kacheln der Guidelines sind deutlich, aber nicht rund.
+        card: "0.75rem",
       },
+
+      boxShadow: {
+        card: "0 1px 2px rgba(0,0,0,0.5)",
+      },
+
       keyframes: {
         "fade-up": {
           from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        "pulse-ring": {
-          "0%": { boxShadow: "0 0 0 0 rgba(0,224,135,0.4)" },
-          "70%": { boxShadow: "0 0 0 10px rgba(0,224,135,0)" },
-          "100%": { boxShadow: "0 0 0 0 rgba(0,224,135,0)" },
-        },
       },
       animation: {
         "fade-up": "fade-up 0.28s ease-out both",
-        "pulse-ring": "pulse-ring 2s ease-out infinite",
       },
     },
   },

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,11 +38,14 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5">
       <div className="animate-fade-up">
-        <div className="mb-1 flex items-center gap-2">
-          <span className="h-5 w-1 rounded-full bg-neon" aria-hidden />
-          <h1 className="text-2xl font-bold tracking-tight">Kaderzentrale</h1>
-        </div>
-        <p className="mb-8 pl-3 text-data-sm text-chalk-muted">
+        {/*
+          Die Lockup-Variante wird laut Guidelines am haeufigsten benutzt.
+          Der grosszuegige Abstand darunter ist die geforderte Schutzzone.
+        */}
+        <BrandLogo variant="lockup" height={22} className="mb-7" />
+
+        <h1 className="kb-headline text-headline">Kaderzentrale</h1>
+        <p className="mb-8 mt-3 max-w-sm text-body text-kb-grey">
           Deine Kickbase-Liga, auf Tagesentscheidungen heruntergebrochen.
         </p>
 
@@ -57,7 +61,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && anmelden()}
-              className="w-full rounded-lg border border-pitch-600 bg-pitch-900 px-3 py-2.5 text-data-sm placeholder:text-chalk-faint focus:border-neon"
+              className="field"
               placeholder="du@beispiel.de"
             />
           </div>
@@ -73,21 +77,21 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && anmelden()}
-              className="w-full rounded-lg border border-pitch-600 bg-pitch-900 px-3 py-2.5 text-data-sm placeholder:text-chalk-faint focus:border-neon"
+              className="field"
               placeholder="••••••••"
             />
           </div>
 
           <div>
             <label htmlFor="league" className="label mb-1.5 block">
-              Liga <span className="normal-case text-chalk-faint">(optional)</span>
+              Liga <span className="normal-case text-kb-grey">(optional)</span>
             </label>
             <input
               id="league"
               value={league}
               onChange={(e) => setLeague(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && anmelden()}
-              className="w-full rounded-lg border border-pitch-600 bg-pitch-900 px-3 py-2.5 text-data-sm placeholder:text-chalk-faint focus:border-neon"
+              className="field"
               placeholder="Namensteil – sonst wird die erste Liga genommen"
             />
           </div>
@@ -95,7 +99,7 @@ export default function LoginPage() {
           {error && (
             <p
               role="alert"
-              className="rounded-lg border border-loss/30 bg-loss/10 px-3 py-2.5 text-data-sm text-loss"
+              className="rounded-lg border-l-2 border-kb-red bg-kb-raised px-3 py-2.5 text-body text-kb-white"
             >
               {error}
             </p>
@@ -104,13 +108,13 @@ export default function LoginPage() {
           <button
             onClick={anmelden}
             disabled={busy || !email || !password}
-            className="w-full rounded-lg bg-neon py-2.5 text-sm font-bold text-pitch-950 transition-colors hover:bg-neon-dim disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-lg bg-kb-red py-3 text-data-sm font-bold uppercase tracking-wide text-kb-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
           >
             {busy ? "Melde an …" : "Anmelden"}
           </button>
         </div>
 
-        <p className="mt-5 text-data-xs leading-relaxed text-chalk-faint">
+        <p className="mt-5 text-data-xs leading-relaxed text-kb-grey">
           Die Zugangsdaten gehen direkt an Kickbase und werden nicht gespeichert.
           Der Token bleibt in einem httpOnly-Cookie auf deinem Rechner. Wenn du
           dich in der App mit Apple oder Facebook anmeldest, setz zuerst unter
