@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { initials, avatarHue } from "@/lib/images";
+import { initials, avatarTone } from "@/lib/images";
+
+/**
+ * Platzhalter in Markengrau statt in einer freien Farbe. Drei Stufen
+ * reichen, um Zeilen auseinanderzuhalten, ohne die schwarz-weisse
+ * Identitaet zu brechen.
+ */
+const TONES = [
+  "bg-kb-surface text-kb-grey",
+  "bg-kb-raised text-kb-grey-light",
+  "bg-kb-line text-kb-grey-light",
+] as const;
 
 /**
  * Spielerfoto mit Wappen, beides mit Rueckfallebene.
@@ -28,7 +39,7 @@ export function PlayerAvatar({
 
   const showPhoto = photo && !photoDead;
   const showLogo = logo && !logoDead;
-  const hue = avatarHue(name);
+  const tone = TONES[avatarTone(name)];
 
   return (
     <div
@@ -46,15 +57,11 @@ export function PlayerAvatar({
           loading="lazy"
           decoding="async"
           onError={() => setPhotoDead(true)}
-          className="h-full w-full rounded-full bg-pitch-700 object-cover object-top"
+          className="h-full w-full rounded-full bg-kb-surface object-cover object-top"
         />
       ) : (
         <div
-          className="flex h-full w-full items-center justify-center rounded-full text-data-xs font-bold"
-          style={{
-            backgroundColor: `hsl(${hue} 30% 22%)`,
-            color: `hsl(${hue} 55% 72%)`,
-          }}
+          className={`flex h-full w-full items-center justify-center rounded-full text-data-xs font-bold uppercase ${tone}`}
         >
           {initials(name)}
         </div>
@@ -70,7 +77,7 @@ export function PlayerAvatar({
           loading="lazy"
           decoding="async"
           onError={() => setLogoDead(true)}
-          className="absolute -bottom-0.5 -right-0.5 rounded-full bg-pitch-900 object-contain ring-1 ring-pitch-900"
+          className="absolute -bottom-0.5 -right-0.5 rounded-full bg-kb-black object-contain ring-1 ring-kb-black"
           style={{
             width: Math.round(size * 0.45),
             height: Math.round(size * 0.45),

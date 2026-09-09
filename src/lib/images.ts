@@ -67,11 +67,16 @@ export function initials(name: string): string {
 }
 
 /**
- * Stabile Farbe pro Spieler, damit die Platzhalter unterscheidbar bleiben
- * und beim Neuladen nicht springen.
+ * Stabile Abstufung pro Spieler, damit die Platzhalter unterscheidbar
+ * bleiben und beim Neuladen nicht springen.
+ *
+ * Frueher war das ein freier HSL-Farbton - bunte Kreise quer durch den
+ * Farbkreis. Das widerspricht dem Corporate Design frontal: die Marke ist
+ * schwarz-weiss mit genau einem Akzent. Jetzt variiert nur die Helligkeit
+ * innerhalb der drei Markengrautoene.
  */
-export function avatarHue(seed: string): number {
+export function avatarTone(seed: string): 0 | 1 | 2 {
   let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
-  return h;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 3;
+  return h as 0 | 1 | 2;
 }
