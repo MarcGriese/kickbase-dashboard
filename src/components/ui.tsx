@@ -1,7 +1,9 @@
 import { eur, eurDelta, POSITIONS, STATUS, teamCrest } from "@/lib/fields";
 import type { Strength, Fixture } from "@/lib/fixtures";
-import type { RatedMarketPlayer } from "@/lib/advisor";
+import type { RatedPlayer, RatedMarketPlayer } from "@/lib/advisor";
+import type { Change, PlayerTrend } from "@/lib/snapshot";
 import { TeamCrest } from "./Media";
+import { PlayerAvatar } from "./PlayerAvatar";
 
 /* ------------------------------------------------------------------ Marke */
 
@@ -138,7 +140,7 @@ export function StatTile({
 export function PositionChip({ pos }: { pos: number }) {
   return (
     <span className="w-10 shrink-0 rounded bg-night-800 px-1.5 py-0.5 text-center text-data-xs font-bold uppercase tracking-wider text-snow-muted">
-      {POSITIONS[pos] ?? "–"}
+      {POSITIONS[pos] ?? "ÔÇô"}
     </span>
   );
 }
@@ -177,7 +179,7 @@ export function FixtureStrip({ fixtures }: { fixtures: Fixture[] }) {
       {fixtures.map((f) => (
         <span
           key={`${f.matchday}-${f.opponentId}`}
-          title={`${f.home ? "Heim" : "Auswärts"} gegen ${f.opponentName} · ${STRENGTH_WORDS[f.strength]} · ${f.matchday}. Spieltag`}
+          title={`${f.home ? "Heim" : "Ausw├ñrts"} gegen ${f.opponentName} ┬À ${STRENGTH_WORDS[f.strength]} ┬À ${f.matchday}. Spieltag`}
           className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-data-xs font-semibold ${STRENGTH_STYLES[f.strength]}`}
         >
           <span className="opacity-60">{f.home ? "H" : "A"}</span>
@@ -196,19 +198,96 @@ export function FixtureStrip({ fixtures }: { fixtures: Fixture[] }) {
   );
 }
 
+
+/* ------------------------------------------------- Punkte pro Million */
+
+export function PpmCell({ ppm, median }: { ppm: number; median: number }) {
+  const rated = median > 0 && ppm > 0;
+  const color = !rated
+    ? "text-snow-faint"
+    : ppm >= median * 1.1
+      ? "text-kb"
+      : ppm <= median * 0.85
+        ? "text-down"
+        : "text-snow-muted";
+
+  return (
+    <div className="hidden w-16 text-right md:block">
+      <div className={`num text-data-sm font-semibold ${color}`}>
+        {ppm > 0 ? ppm.toFixed(1) : "–"}
+      </div>
+      <div className="label">P/Mio</div>
+    </div>
+  );
+}
+
+export function TrendCell({ trend }: { trend: PlayerTrend | null }) {
+  const week: Change | null = trend?.d7 ?? trend?.since ?? null;
+  let body;
+  if (!trend) body = <span className="num text-data-sm text-snow-faint">–</span>;
+  else if (!week) body = <span className="text-data-xs text-snow-faint">{trend.isNew ? "neu" : "–"}</span>;
+  else {
+    const color = week.delta > 0 ? "text-kb" : week.delta < 0 ? "text-down" : "text-snow-faint";
+    body = <span className={`num text-data-sm font-semibold ${color}`}>{week.pct > 0 ? "+" : ""}{week.pct.toFixed(1)} %</span>;
+  }
+  return (
+    <div className="hidden w-20 text-right lg:block">
+      <div>{body}</div>
+      <div className="label">{week ? `${week.ageDays} Tage` : "Verlauf"}</div>
+    </div>
+  );
+}
+
+export function SnapshotNotice({ day, ageDays, count }: { day: string | null; ageDays: number | null; count: number }) {
+  if (!day) {
+    return (
+      <p className="mb-6 rounded-card border border-night-600 bg-night-800/60 px-4 py-3 text-data-xs leading-relaxed text-snow-faint">
+        Noch kein Schnappschuss gespeichert. Der Verlauf bleibt leer, bis der nächtliche Lauf zum ersten Mal durch ist.
+      </p>
+    );
+  }
+  const stale = ageDays !== null && ageDays > 2;
+  return (
+    <p className={`mb-6 rounded-card border px-4 py-3 text-data-xs leading-relaxed ${stale ? "border-down/25 bg-down/5 text-snow-muted" : "border-night-600 bg-night-800/60 text-snow-faint"}`}>
+      Verglichen mit dem Stand vom <span className="num font-semibold text-snow">{day}</span>
+      {ageDays !== null && ageDays > 0 && ` (${ageDays} Tage her)`}. {count} {count === 1 ? "Schnappschuss" : "Schnappschüsse"} im Speicher.
+      {stale && " Der nächtliche Lauf scheint zu hängen."}
+    </p>
+  );
+}
+
+export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
+  return (
+    <li className="flex items-center gap-3 border-b border-night-700/70 px-4 py-3 last:border-0 hover:bg-night-800/60">
+      <PlayerAvatar name={p.fullName || p.name} photo={p.photo} logo={p.logo} />
+      <PositionChip pos={p.pos} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2"><span className="truncate font-semibold">{p.fullName || p.name}</span><StatusFlag status={p.status} /></div>
+        <Reasons reasons={p.reasons} />
+      </div>
+      <div className="hidden w-14 text-right sm:block"><div className="num text-data-sm font-semibold">{p.average.toFixed(0)}</div><div className="label">Schnitt</div></div>
+      <PpmCell ppm={p.ppm} median={median} />
+      <TrendCell trend={p.trend} />
+      <div className="w-24 text-right"><div className="num text-data-sm font-semibold">{eur(p.marketValue)}</div><Delta value={p.dayDelta} pct={p.dayPct} /></div>
+      <VerdictBadge verdict={p.verdict} />
+    </li>
+  );
+}
+
 /* ------------------------------------------------------------- Marktzeile */
 
 function Reasons({ reasons }: { reasons: string[] }) {
   if (!reasons.length) return null;
   return (
-    <p className="mt-1 text-data-xs text-snow-faint">{reasons.join(" · ")}</p>
+    <p className="mt-1 text-data-xs text-snow-faint">{reasons.join(" ┬À ")}</p>
   );
 }
 
-export function MarketRow({ p }: { p: RatedMarketPlayer }) {
+export function MarketRow({ p, median = 0 }: { p: RatedMarketPlayer; median?: number }) {
   const bargain = p.marketValue > 0 && p.price < p.marketValue;
   return (
     <li className="flex items-center gap-3 border-b border-night-700/70 px-4 py-3 last:border-0 hover:bg-night-800/60">
+      <PlayerAvatar name={p.fullName || p.name} photo={p.photo} logo={p.logo} />
       <PositionChip pos={p.pos} />
 
       <div className="min-w-0 flex-1">
@@ -218,6 +297,9 @@ export function MarketRow({ p }: { p: RatedMarketPlayer }) {
         </div>
         <Reasons reasons={p.reasons} />
       </div>
+
+      <PpmCell ppm={p.ppm} median={median} />
+      <TrendCell trend={p.trend} />
 
       <div className="hidden w-24 text-right sm:block">
         <div className="num text-data-sm text-snow-muted">{eur(p.marketValue)}</div>

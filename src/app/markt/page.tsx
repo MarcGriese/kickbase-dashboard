@@ -3,8 +3,9 @@ import { Nav } from "@/components/Nav";
 import { MarketRow, Empty } from "@/components/ui";
 import { getToken, getLeagueId } from "@/lib/session";
 import { getMarket, getBudget, getFeed, KickbaseError } from "@/lib/kickbase";
-import { rateMarket, leagueOverpay } from "@/lib/advisor";
-import { eur } from "@/lib/fields";
+import { rateMarket, leagueOverpay, medianPpm } from "@/lib/advisor";
+import { eur, pick } from "@/lib/fields";
+import { compareWithHistory } from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,16 @@ export default async function MarktPage() {
   }
 
   const { factor, samples } = leagueOverpay(feed);
+  const history = compareWithHistory(
+    leagueId,
+    marketRaw.map((raw) => ({
+      playerId: String(pick(raw, "id", "")),
+      marketValue: Number(pick(raw, "marketValue", 0)) || 0,
+    }))
+  );
+  const reference = medianPpm(marketRaw);
   const players = marketRaw
-    .map((m) => rateMarket(m, factor, budget))
+    .map((m) => rateMarket(m, factor, budget, { medianPpm: reference, trends: history.byPlayer }))
     .sort((a, b) => b.score - a.score);
 
   const buys = players.filter((p) => p.verdict === "kaufen");
@@ -50,11 +59,11 @@ export default async function MarktPage() {
               <div className="mt-1 text-data-sm text-snow-muted">
                 {samples > 0
                   ? `${samples} echte Transfers`
-                  : "zu wenige Transfers – Schätzwert +5 %"}
+                  : "zu wenige Transfers ÔÇô Sch├ñtzwert +5 %"}
               </div>
             </div>
             <div>
-              <div className="label">Verfügbar</div>
+              <div className="label">Verf├╝gbar</div>
               <div className="num mt-1 text-data-sm text-snow-muted">
                 {budget !== null ? eur(budget) : "unbekannt"}
               </div>
@@ -62,9 +71,9 @@ export default async function MarktPage() {
           </div>
 
           <p className="mt-3 border-t border-night-700 pt-3 text-data-xs leading-relaxed text-snow-faint">
-            So viel über Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
+            So viel ├╝ber Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
             Das Maximalgebot leitet sich daraus ab. Die verdeckten Gebote deiner
-            Mitspieler kennt niemand – auch diese App nicht.
+            Mitspieler kennt niemand ÔÇô auch diese App nicht.
           </p>
         </div>
 
@@ -88,13 +97,13 @@ export default async function MarktPage() {
           {players.length ? (
             <ul>
               {players.map((p) => (
-                <MarketRow key={p.id} p={p} />
+                <MarketRow key={p.id} p={p} median={reference} />
               ))}
             </ul>
           ) : (
             <Empty
               title="Der Markt ist leer"
-              hint="Kickbase stellt über Nacht neue Spieler ein. Schau später wieder rein."
+              hint="Kickbase stellt ├╝ber Nacht neue Spieler ein. Schau sp├ñter wieder rein."
             />
           )}
         </section>

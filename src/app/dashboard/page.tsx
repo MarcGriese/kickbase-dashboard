@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { StatTile } from "@/components/ui";
+import { StatTile, SnapshotNotice } from "@/components/ui";
 import { SquadTable } from "@/components/SquadTable";
 import { getToken, getLeagueId } from "@/lib/session";
 import {
@@ -10,11 +10,12 @@ import {
   getCompetitionTable,
   KickbaseError,
 } from "@/lib/kickbase";
-import { rateOwn } from "@/lib/advisor";
+import { rateOwn, medianPpm } from "@/lib/advisor";
 import { buildSchedule, buildTable } from "@/lib/fixtures";
 import { daysUntil } from "@/lib/forecast";
 import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
-import { eur, eurDelta, shortDate } from "@/lib/fields";
+import { eur, eurDelta, shortDate, pick } from "@/lib/fields";
+import { compareWithHistory, countSnapshots, daysBetween, berlinDay } from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,22 @@ export default async function DashboardPage() {
   const schedule = buildSchedule(matchdaysRaw, table);
   const forecastDays = daysUntil(schedule.nextKickoff);
 
+  const history = compareWithHistory(
+    leagueId,
+    squadRaw.map((raw) => ({
+      playerId: String(pick(raw, "id", "")),
+      marketValue: Number(pick(raw, "marketValue", 0)) || 0,
+    }))
+  );
+  const reference = medianPpm(squadRaw);
+
   const players = squadRaw.map((raw) =>
-    rateOwn(raw, { fixturesByTeam: schedule.byTeam, forecastDays })
+    rateOwn(raw, {
+      fixturesByTeam: schedule.byTeam,
+      forecastDays,
+      medianPpm: reference,
+      trends: history.byPlayer,
+    })
   );
 
   const ORDER = { verkaufen: 0, halten: 1, "stark-halten": 2 } as const;
@@ -69,7 +84,7 @@ export default async function DashboardPage() {
     : `${forecastDays} Tage`;
   const matchdayLabel = schedule.nextMatchday
     ? `${schedule.nextMatchday}. Spieltag`
-    : "nächster Spieltag";
+    : "n├ñchster Spieltag";
 
   return (
     <>
@@ -77,11 +92,11 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
         {/* ----------------------------------------------------- Kopfzeile */}
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="display text-xl">Übersicht</h1>
+          <h1 className="display text-xl">├£bersicht</h1>
           <p className="text-data-sm text-snow-muted">
             {matchdayLabel} beginnt{" "}
             <span className="font-semibold text-snow">{horizonLabel}</span>
-            {horizonDate && ` · noch ${forecastDays} Tag${forecastDays === 1 ? "" : "e"}`}
+            {horizonDate && ` ┬À noch ${forecastDays} Tag${forecastDays === 1 ? "" : "e"}`}
           </p>
         </div>
 
@@ -94,7 +109,7 @@ export default async function DashboardPage() {
             hint={
               overview.teamValue === null
                 ? "aus den Marktwerten summiert"
-                : `${players.length} Spieler · Summe der Marktwerte ${eur(summed)}`
+                : `${players.length} Spieler ┬À Summe der Marktwerte ${eur(summed)}`
             }
           />
 
@@ -103,18 +118,18 @@ export default async function DashboardPage() {
             label="Max. Kaderwert zu Spieltagsbeginn"
             value={eur(room.squadValue)}
             accent
-            hint={`Teamwert ${eur(teamValue)} + Budget ${eur(budget ?? 0)} – so viel Kader könntest du bis zum Anpfiff auf dem Platz haben.`}
+            hint={`Teamwert ${eur(teamValue)} + Budget ${eur(budget ?? 0)} ÔÇô so viel Kader k├Ânntest du bis zum Anpfiff auf dem Platz haben.`}
           />
 
           <StatTile
             big
             label="Budget"
-            value={budget !== null ? eur(budget) : "–"}
+            value={budget !== null ? eur(budget) : "ÔÇô"}
             tone={budget !== null && budget < 0 ? "down" : "neutral"}
             hint={
               budget === null
                 ? "von der API nicht geliefert"
-                : `Bis ${eur(-room.maxNegative)} darfst du ins Minus (33 % des Kaderwerts) · Spielraum insgesamt ${eur(room.spendable)} · zum Spieltagsbeginn muss das Konto wieder im Plus stehen.`
+                : `Bis ${eur(-room.maxNegative)} darfst du ins Minus (33 % des Kaderwerts) ┬À Spielraum insgesamt ${eur(room.spendable)} ┬À zum Spieltagsbeginn muss das Konto wieder im Plus stehen.`
             }
           />
         </div>
@@ -124,7 +139,7 @@ export default async function DashboardPage() {
             label="Letzte 24 Stunden"
             value={eurDelta(dayTotal)}
             tone={dayTotal > 0 ? "up" : dayTotal < 0 ? "down" : "neutral"}
-            hint="Marktwert über alle Spieler"
+            hint="Marktwert ├╝ber alle Spieler"
           />
           <StatTile
             label="Letzte 7 Tage"
@@ -136,9 +151,15 @@ export default async function DashboardPage() {
             label={`Prognose bis ${horizonLabel}`}
             value={eurDelta(forecastTotal)}
             tone={forecastTotal > 0 ? "up" : forecastTotal < 0 ? "down" : "neutral"}
-            hint={`Kader dann rund ${eur(summed + forecastTotal)} – fortgeschriebener Trend, keine Kickbase-Formel.`}
+            hint={`Kader dann rund ${eur(summed + forecastTotal)} ÔÇô fortgeschriebener Trend, keine Kickbase-Formel.`}
           />
         </div>
+
+        <SnapshotNotice
+          day={history.reference?.day ?? null}
+          ageDays={history.reference ? daysBetween(history.reference.day, berlinDay()) : null}
+          count={countSnapshots(leagueId)}
+        />
 
         {sells.length > 0 && (
           <div className="mb-6 rounded-card border border-down/25 bg-down/5 px-4 py-3">
@@ -158,22 +179,22 @@ export default async function DashboardPage() {
 
         <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-snow-faint">
           <p>
-            Die Einschätzung gewichtet Marktwert-Trend, Punkteschnitt,
-            Einsatzfähigkeit und die Stärke der nächsten Gegner. Sie ersetzt kein
-            eigenes Urteil – bei Spielern kurz vor einem guten Spielplan kann Halten
+            Die Einschätzung gewichtet Marktwert-Trend, Punkte pro Million, Punkteschnitt,
+            Einsatzf├ñhigkeit und die St├ñrke der n├ñchsten Gegner. Sie ersetzt kein
+            eigenes Urteil ÔÇô bei Spielern kurz vor einem guten Spielplan kann Halten
             trotz fallendem Marktwert richtig sein.
           </p>
           <p>
             <span className="font-semibold text-snow-muted">Prognose:</span> 60 % der
             Bewegung der letzten 24 Stunden plus 40 % des Wochenschnitts, pro Tag um
             15 % abklingend, hochgerechnet bis zum Anpfiff. Kickbase legt seine
-            Marktwertformel nicht offen – das hier ist eine Fortschreibung, keine
+            Marktwertformel nicht offen ÔÇô das hier ist eine Fortschreibung, keine
             Vorhersage.
           </p>
           <p>
             <span className="font-semibold text-snow-muted">Gegnerfarben:</span> rot =
-            Gegner aus den oberen Tabellenrängen, gelb = Mittelfeld, grün = machbar.
-            Heimspiele werden zwei Plätze milder, Auswärtsspiele zwei Plätze härter
+            Gegner aus den oberen Tabellenr├ñngen, gelb = Mittelfeld, gr├╝n = machbar.
+            Heimspiele werden zwei Pl├ñtze milder, Ausw├ñrtsspiele zwei Pl├ñtze h├ñrter
             gerechnet. Ohne Tabelle von der API bleibt alles gelb.
           </p>
           <p>
