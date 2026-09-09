@@ -100,71 +100,52 @@ export default async function LigaPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-6xl animate-fade-up px-4 py-6">
-        <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
-            <h2 className="kb-headline">Tabelle</h2>
-            <span className="label">Rückstand auf Platz 1</span>
-          </div>
+      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1 className="display text-xl">Liga</h1>
+          <LeagueLead rows={rows} />
+        </div>
 
-          {managers.length ? (
-            <ul>
-              {managers.map((m, i) => {
-                const gap = leader - m.points;
-                return (
-                  <li
-                    key={m.id || i}
-                    className={`flex items-center gap-3 border-b border-kb-line px-4 py-3 last:border-0 ${
-                      m.isMe ? "border-l-2 border-l-kb-red bg-kb-raised" : ""
-                    }`}
-                  >
-                    <span
-                      className={`num w-7 shrink-0 text-center text-data-sm font-bold ${
-                        i === 0 ? "text-kb-white" : "text-kb-grey"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
+        {/* Wie verlaesslich die hergeleiteten Konten sind, gehoert ueber die
+            Tabelle und nicht ins Kleingedruckte. */}
+        <CalibrationNote
+          trusted={calibration.trusted}
+          error={calibration.error}
+          reading={calibration.reading}
+          derivedCount={derivedCount}
+          capital={startCapital(rules)}
+          hasOwnBudget={myBudget !== null}
+        />
 
-                    <span
-                      className={`min-w-0 flex-1 truncate ${
-                        m.isMe
-                          ? "font-bold uppercase tracking-wide text-kb-white"
-                          : "font-medium text-kb-grey-light"
-                      }`}
-                    >
-                      {m.name}
-                      {m.isMe && (
-                        <span className="ml-2 text-data-xs font-bold uppercase tracking-wide text-kb-red">
-                          du
-                        </span>
-                      )}
-                    </span>
+        <LeagueTable rows={rows} matchday={matchday} />
 
-                    {m.teamValue !== null && (
-                      <span className="num hidden w-24 text-right text-data-sm text-kb-grey sm:block">
-                        {eur(m.teamValue)}
-                      </span>
-                    )}
-
-                    <span className="num w-20 text-right text-data-sm font-semibold text-kb-white">
-                      {m.points.toLocaleString("de-DE")}
-                    </span>
-
-                    <span className="num w-20 text-right text-data-sm text-kb-grey">
-                      {i === 0 ? "–" : `−${gap.toLocaleString("de-DE")}`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <Empty
-              title="Keine Tabelle verfügbar"
-              hint="Die API hat für diese Liga keine Rangliste geliefert."
-            />
-          )}
-        </section>
+        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
+          <p>
+            <span className="font-semibold text-kb-grey-light">
+              Woher das Budget kommt:
+            </span>{" "}
+            Kickbase zeigt die Kontostände deiner Mitspieler nicht an. Sie lassen
+            sich aber ausrechnen, solange ohne Boni gespielt wird: Startkapital
+            ({eur(rules.startTeamValue)} Startkader + {eur(rules.startBudget)}{" "}
+            Budget) + Transfergewinn + stille Reserven des Kaders − aktueller
+            Teamwert. Die stillen Reserven sind die Summe der Gewinne und
+            Verluste seit Kauf über alle Spieler eines Kaders.
+          </p>
+          <p>
+            <span className="font-semibold text-kb-grey-light">Andere Ligaregeln?</span>{" "}
+            Startkader und Startbudget lassen sich über die Umgebungsvariablen{" "}
+            <code className="text-kb-grey-light">KB_START_TEAM_VALUE</code> und{" "}
+            <code className="text-kb-grey-light">KB_START_BUDGET</code> setzen.
+            Werden in der Liga Boni ausgezahlt, stimmt die Rechnung nicht mehr –
+            die Prüfung über der Tabelle schlägt dann Alarm.
+          </p>
+          <p>
+            <span className="font-semibold text-kb-grey-light">Max. Kader:</span>{" "}
+            Teamwert + Budget, also der größtmögliche Kaderwert zu
+            Spieltagsbeginn. Darunter steht, bis wohin das Konto ins Minus darf
+            ({Math.round(MAX_NEGATIVE_SHARE * 100)} % davon).
+          </p>
+        </div>
       </main>
     </>
   );
