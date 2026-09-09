@@ -66,7 +66,8 @@ export const STATUS: Record<number, string> = {
   16: "Nicht im Kader",
 };
 
-const CDN = "https://kickbase.b-cdn.net";
+// Kickbase v4 CDN. Ueber KB_IMAGE_BASE umstellbar, falls der Host wechselt.
+const CDN = (process.env.KB_IMAGE_BASE ?? "https://cdn.kickbase.com").replace(/\/+$/, "");
 
 export function playerImage(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -74,12 +75,17 @@ export function playerImage(raw: string | null | undefined): string | null {
   if (!v) return null;
   if (v.startsWith("http://") || v.startsWith("https://")) return v;
   if (v.startsWith("/")) return CDN + v;
-  return `${CDN}/pool/playersbig/${v}`;
+  return `${CDN}/${v.replace(/^\/+/, "")}`;
 }
 
+/**
+ * Vereinswappen. Kickbase v4 legt sie unter /files/teams/{id}/{size} ab
+ * (Groesse 0 oder 11). Ueber KB_TEAM_LOGO_TEMPLATE anpassbar.
+ */
 export function teamCrest(teamId: number | string | null | undefined): string | null {
   if (teamId === null || teamId === undefined || teamId === "") return null;
-  return `${CDN}/pool/teamsg/${teamId}.png`;
+  const template = process.env.KB_TEAM_LOGO_TEMPLATE ?? `${CDN}/files/teams/{id}/11.png`;
+  return template.replace("{id}", String(teamId));
 }
 
 export function eur(n: number | null | undefined): string {

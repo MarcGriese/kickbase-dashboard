@@ -84,9 +84,18 @@ export interface ManagerRow {
   isMe: boolean;
 }
 
-/** Liest die Rangliste. Feldnamen laut v4-Doku: sp, mdp, tv, i, n. */
-export function parseRanking(raw: Record<string, any>): ManagerRow[] {
-  const meId = String(raw?.me?.i ?? raw?.mu ?? "");
+/**
+ * Liest die Rangliste. Feldnamen laut v4-Doku: sp, mdp, tv, i, n.
+ *
+ * Die Antwort enthaelt kein Feld, das den eigenen Eintrag markiert. Die
+ * eigene ID kommt deshalb von aussen (getMyId); ohne sie bleibt als
+ * Rueckfallebene der Versuch, sie aus der Antwort zu lesen.
+ */
+export function parseRanking(
+  raw: Record<string, any>,
+  meId?: string | null
+): ManagerRow[] {
+  const ownId = String(meId ?? "") || String(raw?.me?.i ?? raw?.mu ?? "");
   const items: any[] = raw?.us ?? raw?.it ?? raw?.users ?? [];
 
   return items.map((u) => {
@@ -99,7 +108,7 @@ export function parseRanking(raw: Record<string, any>): ManagerRow[] {
       teamValue: numOrNull(u?.tv),
       profit: null,
       unrealized: null,
-      isMe: id !== "" && id === meId,
+      isMe: id !== "" && id === ownId,
     };
   });
 }
@@ -117,6 +126,27 @@ export function sumUnrealized(squad: Record<string, any>[] | null): number | nul
   let seen = 0;
   for (const p of squad) {
     const v = numOrNull(p?.mvgl);
+    if (v !== null) {
+      sum += v;
+      seen++;
+    }
+  }
+  return seen ? sum : null;
+}
+
+/**
+ * Aktueller Kaderwert eines Managers: Summe der Marktwerte (`mv`) seines
+ * Kaders. Das ist der Teamwert, den Kickbase live anzeigt - und die richtige
+ * Grundlage der Budget-Herleitung. Der `tv` aus der Rangliste hinkt dagegen
+ * teils einen Spieltag hinterher, was die Herleitung gegen die stillen
+ * Reserven desselben (aktuellen) Kaders verfaelscht.
+ */
+export function sumMarketValue(squad: Record<string, any>[] | null): number | null {
+  if (!squad || !squad.length) return null;
+  let sum = 0;
+  let seen = 0;
+  for (const p of squad) {
+    const v = numOrNull(p?.mv ?? p?.marketValue);
     if (v !== null) {
       sum += v;
       seen++;

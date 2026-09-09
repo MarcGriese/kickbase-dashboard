@@ -5,6 +5,7 @@ import { getToken, getLeagueId } from "@/lib/session";
 import {
   getRanking,
   getBudget,
+  getMyId,
   getManagerDashboard,
   getManagerSquad,
   mapLimit,
@@ -17,6 +18,7 @@ import {
   rulesFromEnv,
   startCapital,
   sumUnrealized,
+  sumMarketValue,
   type ManagerRow,
 } from "@/lib/league";
 import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
@@ -34,30 +36,35 @@ export default async function LigaPage() {
 
   const rules = rulesFromEnv(process.env);
 
-  let rankingRaw, myBudget;
+  let rankingRaw, myBudget, myId;
   try {
-    [rankingRaw, myBudget] = await Promise.all([
+    [rankingRaw, myBudget, myId] = await Promise.all([
       getRanking(token, leagueId),
       getBudget(token, leagueId),
+      getMyId(token),
     ]);
   } catch (err) {
     if (err instanceof KickbaseError && err.status === 401) redirect("/login");
     throw err;
   }
 
-  const managers = parseRanking(rankingRaw);
+  const managers = parseRanking(rankingRaw, myId);
 
-  // Pro Manager Dashboard (Transfergewinn) und Kader (stille Reserven).
-  // Beides darf einzeln fehlschlagen - dann bleibt die Zeile unvollstaendig.
+  // Pro Manager Dashboard (Transfergewinn) und Kader (stille Reserven +
+  // aktueller Kaderwert). Beides darf einzeln fehlschlagen - dann bleibt die
+  // Zeile unvollstaendig.
   const enriched: ManagerRow[] = await mapLimit(managers, CONCURRENCY, async (m) => {
     if (!m.id) return m;
     const [dash, squad] = await Promise.all([
       getManagerDashboard(token, leagueId, m.id),
       getManagerSquad(token, leagueId, m.id),
     ]);
+    // Live-Kaderwert aus dem Kader selbst, nicht der teils veraltete `tv`
+    // aus der Rangliste - sonst rechnet die Herleitung den aktuellen Kader
+    // gegen einen aelteren Teamwert und liegt daneben.
     return {
       ...m,
-      teamValue: m.teamValue ?? numOrNull(dash?.tv),
+      teamValue: sumMarketValue(squad) ?? m.teamValue ?? numOrNull(dash?.tv),
       profit: numOrNull(dash?.prft),
       unrealized: sumUnrealized(squad),
     };
