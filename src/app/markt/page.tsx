@@ -49,39 +49,39 @@ export default async function MarktPage() {
           <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
             <div>
               <div className="label">Aufschlag in deiner Liga</div>
-              <div className="num mt-1 text-2xl font-extrabold text-kb">
+              <div className="num mt-1 text-2xl font-extrabold text-kb-white">
                 {factor >= 1 ? "+" : ""}
                 {((factor - 1) * 100).toFixed(1)} %
               </div>
             </div>
             <div>
               <div className="label">Grundlage</div>
-              <div className="mt-1 text-data-sm text-snow-muted">
+              <div className="mt-1 text-data-sm text-kb-grey-light">
                 {samples > 0
                   ? `${samples} echte Transfers`
-                  : "zu wenige Transfers ÔÇô Sch├ñtzwert +5 %"}
+                  : "zu wenige Transfers – Schätzwert +5 %"}
               </div>
             </div>
             <div>
-              <div className="label">Verf├╝gbar</div>
-              <div className="num mt-1 text-data-sm text-snow-muted">
+              <div className="label">Verfügbar</div>
+              <div className="num mt-1 text-data-sm text-kb-grey-light">
                 {budget !== null ? eur(budget) : "unbekannt"}
               </div>
             </div>
           </div>
 
-          <p className="mt-3 border-t border-night-700 pt-3 text-data-xs leading-relaxed text-snow-faint">
-            So viel ├╝ber Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
+          <p className="mt-3 border-t border-kb-line pt-3 text-data-xs leading-relaxed text-kb-grey">
+            So viel über Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
             Das Maximalgebot leitet sich daraus ab. Die verdeckten Gebote deiner
-            Mitspieler kennt niemand ÔÇô auch diese App nicht.
+            Mitspieler kennt niemand – auch diese App nicht.
           </p>
         </div>
 
         {buys.length > 0 && (
-          <div className="mb-6 rounded-card border border-kb/25 bg-kb/5 px-4 py-3">
+          <div className="mb-6 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
             <p className="text-data-sm">
-              <span className="font-semibold text-kb">Lohnt sich heute:</span>{" "}
-              <span className="text-snow-muted">
+              <span className="font-bold uppercase tracking-wide text-kb-red">Lohnt sich heute:</span>{" "}
+              <span className="text-kb-grey-light">
                 {buys.map((p) => p.name).join(", ")}
               </span>
             </p>
@@ -89,7 +89,7 @@ export default async function MarktPage() {
         )}
 
         <section className="card overflow-hidden">
-          <div className="flex items-baseline justify-between border-b border-night-700 px-4 py-3">
+          <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
             <h2 className="display text-base">Transfermarkt</h2>
             <span className="label">Beste Ziele zuerst</span>
           </div>
@@ -103,7 +103,7 @@ export default async function MarktPage() {
           ) : (
             <Empty
               title="Der Markt ist leer"
-              hint="Kickbase stellt ├╝ber Nacht neue Spieler ein. Schau sp├ñter wieder rein."
+              hint="Kickbase stellt über Nacht neue Spieler ein. Schau später wieder rein."
             />
           )}
         </section>

@@ -21,7 +21,7 @@ export function Nav() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-night-700 bg-night-900/85 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-kb-line bg-kb-black/90 backdrop-blur">
       {/* Auf schmalen Schirmen bricht die Linkleiste in eine zweite Zeile -
           in einer Reihe passen Wortmarke, drei Links und Abmelden nicht. */}
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
@@ -39,8 +39,8 @@ export function Nav() {
                 aria-current={active ? "page" : undefined}
                 className={`rounded-md px-3 py-1.5 text-data-sm font-bold uppercase tracking-wider transition-colors ${
                   active
-                    ? "bg-kb/15 text-kb"
-                    : "text-snow-muted hover:bg-night-800 hover:text-snow"
+                    ? "bg-kb-white text-kb-black"
+                    : "text-kb-grey-light hover:bg-kb-raised hover:text-kb-white"
                 }`}
               >
                 {l.label}
@@ -51,7 +51,7 @@ export function Nav() {
 
         <button
           onClick={abmelden}
-          className="order-2 ml-auto rounded-md px-3 py-1.5 text-data-sm text-snow-faint transition-colors hover:bg-night-800 hover:text-snow sm:order-3"
+          className="order-2 ml-auto rounded-md px-3 py-1.5 text-data-sm text-kb-grey transition-colors hover:bg-kb-raised hover:text-kb-white sm:order-3"
         >
           Abmelden
         </button>

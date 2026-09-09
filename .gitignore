@@ -12,3 +12,7 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# Exportierte Patches (git format-patch). Ein Transportformat, um Commits
+# von Hand weiterzureichen - der Inhalt steht ohnehin schon in der Historie.
+*.patch

@@ -66,7 +66,7 @@ function Num({
         {value}
       </div>
       {/* Ab lg traegt die Kopfzeile die Beschriftung. */}
-      {hint && <div className="text-data-xs text-snow-faint lg:hidden">{hint}</div>}
+      {hint && <div className="text-data-xs text-kb-grey lg:hidden">{hint}</div>}
     </div>
   );
 }
@@ -88,8 +88,8 @@ function Head({
       type="button"
       onClick={() => onSort(col.key)}
       title={`Nach ${col.label} sortieren`}
-      className={`label text-right transition-colors hover:text-snow ${
-        active ? "text-kb" : ""
+      className={`label text-right transition-colors hover:text-kb-white ${
+        active ? "text-kb-white" : ""
       }`}
     >
       {col.short}
@@ -145,7 +145,7 @@ export function LeagueTable({
 
   return (
     <section className="card overflow-hidden">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-night-700 px-4 py-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-kb-line px-4 py-3">
         <h2 className="display text-base">Tabelle</h2>
         <span className="label">
           nach Gesamtpunkten
@@ -154,7 +154,7 @@ export function LeagueTable({
       </div>
 
       {/* Kopfzeile ------------------------------------------------------ */}
-      <div className={`hidden border-b border-night-700 bg-night-900/60 px-4 py-2 ${GRID}`}>
+      <div className={`hidden border-b border-kb-line bg-kb-surface/60 px-4 py-2 ${GRID}`}>
         <span className="label">#</span>
         <span className="label">Manager</span>
         {COLUMNS.map((c) => (
@@ -164,7 +164,7 @@ export function LeagueTable({
       </div>
 
       {/* Sortierung auf schmalen Schirmen ------------------------------- */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-night-700 px-4 py-2.5 lg:hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-kb-line px-4 py-2.5 lg:hidden">
         <span className="label">Sortieren</span>
         <select
           value={sort}
@@ -184,7 +184,7 @@ export function LeagueTable({
           type="button"
           onClick={() => setDesc((d) => !d)}
           aria-label={desc ? "Aufsteigend sortieren" : "Absteigend sortieren"}
-          className="rounded-lg border border-night-600 bg-night-900 px-2.5 py-1.5 text-data-sm font-bold text-snow-muted transition-colors hover:border-kb hover:text-kb"
+          className="rounded-lg border border-kb-line-strong bg-kb-surface px-2.5 py-1.5 text-data-sm font-bold text-kb-grey-light transition-colors hover:border-kb-white hover:text-kb-white"
         >
           {desc ? "↓" : "↑"}
         </button>
@@ -197,26 +197,26 @@ export function LeagueTable({
           return (
             <li
               key={m.id}
-              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-night-700/70 px-4 py-3 last:border-0 sm:grid-cols-3 ${GRID} ${
-                m.isMe ? "bg-kb/5" : "hover:bg-night-800/50"
+              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-kb-line/70 px-4 py-3 last:border-0 sm:grid-cols-3 ${GRID} ${
+                m.isMe ? "border-l-2 border-l-kb-red bg-kb-raised" : "hover:bg-kb-raised/50"
               }`}
             >
               <div className="col-span-2 flex items-center gap-3 sm:col-span-3 lg:contents">
                 <span
                   className={`num w-7 shrink-0 text-center text-data-sm font-bold lg:w-auto ${
-                    place === 1 ? "text-kb" : "text-snow-faint"
+                    place === 1 ? "text-kb-white" : "text-kb-grey"
                   }`}
                 >
                   {place}
                 </span>
                 <span
                   className={`min-w-0 flex-1 truncate ${
-                    m.isMe ? "font-bold text-kb" : "font-semibold"
+                    m.isMe ? "font-bold uppercase tracking-wide text-kb-white" : "font-semibold text-kb-grey-light"
                   }`}
                 >
                   {m.name}
                   {m.isMe && (
-                    <span className="ml-2 text-data-xs font-normal text-snow-faint">
+                    <span className="ml-2 text-data-xs font-normal text-kb-grey">
                       du
                     </span>
                   )}
@@ -235,29 +235,29 @@ export function LeagueTable({
               <Num value={eur(m.teamValue)} hint="Teamwert" />
 
               <div className="text-right">
-                <div className="text-data-xs text-snow-faint lg:hidden">Transfers</div>
+                <div className="text-data-xs text-kb-grey lg:hidden">Transfers</div>
                 {m.profit === null ? (
-                  <span className="num text-data-sm text-snow-faint">–</span>
+                  <span className="num text-data-sm text-kb-grey">–</span>
                 ) : (
                   <Delta value={m.profit} />
                 )}
               </div>
 
               <div className="text-right">
-                <div className="text-data-xs text-snow-faint lg:hidden">Budget</div>
+                <div className="text-data-xs text-kb-grey lg:hidden">Budget</div>
                 <div
                   className={`num text-data-sm font-bold ${
                     m.budget === null
-                      ? "text-snow-faint"
+                      ? "text-kb-grey"
                       : m.budget < 0
-                        ? "text-down"
-                        : "text-snow"
+                        ? "text-kb-red"
+                        : "text-kb-white"
                   }`}
                 >
                   {m.budget === null ? "–" : eur(m.budget)}
                 </div>
                 {m.maxNegative !== null && (
-                  <div className="text-data-xs text-snow-faint">
+                  <div className="text-data-xs text-kb-grey">
                     bis {eur(-m.maxNegative)}
                   </div>
                 )}
@@ -294,26 +294,26 @@ export function LeagueLead({ rows }: { rows: LeagueRow[] }) {
   );
 
   return (
-    <p className="text-data-sm text-snow-muted">
+    <p className="text-data-sm text-kb-grey-light">
       Du stehst bei {me.points.toLocaleString("de-DE")} Punkten
       {me.budget !== null && (
         <>
           {" "}
-          und rund <span className="font-semibold text-snow">{eur(me.budget)}</span>{" "}
+          und rund <span className="font-semibold text-kb-white">{eur(me.budget)}</span>{" "}
           Budget
         </>
       )}
       {richest && !richest.isMe && richest.squadValue !== null && (
         <>
           . Den größten möglichen Kader hätte{" "}
-          <span className="font-semibold text-snow">{richest.name}</span> mit{" "}
+          <span className="font-semibold text-kb-white">{richest.name}</span> mit{" "}
           {eur(richest.squadValue)}
         </>
       )}
       {me.profit !== null && (
         <>
           . Dein Transfergewinn:{" "}
-          <span className="font-semibold text-snow">{eurDelta(me.profit)}</span>
+          <span className="font-semibold text-kb-white">{eurDelta(me.profit)}</span>
         </>
       )}
       .

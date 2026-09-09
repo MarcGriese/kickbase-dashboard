@@ -119,9 +119,9 @@ export default async function LigaPage() {
 
         <LeagueTable rows={rows} matchday={matchday} />
 
-        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-snow-faint">
+        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
           <p>
-            <span className="font-semibold text-snow-muted">
+            <span className="font-semibold text-kb-grey-light">
               Woher das Budget kommt:
             </span>{" "}
             Kickbase zeigt die Kontostände deiner Mitspieler nicht an. Sie lassen
@@ -132,15 +132,15 @@ export default async function LigaPage() {
             Verluste seit Kauf über alle Spieler eines Kaders.
           </p>
           <p>
-            <span className="font-semibold text-snow-muted">Andere Ligaregeln?</span>{" "}
+            <span className="font-semibold text-kb-grey-light">Andere Ligaregeln?</span>{" "}
             Startkader und Startbudget lassen sich über die Umgebungsvariablen{" "}
-            <code className="text-snow-muted">KB_START_TEAM_VALUE</code> und{" "}
-            <code className="text-snow-muted">KB_START_BUDGET</code> setzen.
+            <code className="text-kb-grey-light">KB_START_TEAM_VALUE</code> und{" "}
+            <code className="text-kb-grey-light">KB_START_BUDGET</code> setzen.
             Werden in der Liga Boni ausgezahlt, stimmt die Rechnung nicht mehr –
             die Prüfung über der Tabelle schlägt dann Alarm.
           </p>
           <p>
-            <span className="font-semibold text-snow-muted">Max. Kader:</span>{" "}
+            <span className="font-semibold text-kb-grey-light">Max. Kader:</span>{" "}
             Teamwert + Budget, also der größtmögliche Kaderwert zu
             Spieltagsbeginn. Darunter steht, bis wohin das Konto ins Minus darf
             ({Math.round(MAX_NEGATIVE_SHARE * 100)} % davon).
@@ -174,9 +174,9 @@ function CalibrationNote({
 
   if (trusted && error !== null) {
     return (
-      <div className="mb-4 rounded-card border border-kb/25 bg-kb/5 px-4 py-3">
-        <p className="text-data-sm text-snow-muted">
-          <span className="font-bold uppercase tracking-wider text-kb">Geprüft:</span>{" "}
+      <div className="mb-4 rounded-card border border-kb-line bg-kb-surface/90 px-4 py-3">
+        <p className="text-data-sm text-kb-grey-light">
+          <span className="font-bold uppercase tracking-wider text-kb-white">Geprüft:</span>{" "}
           Die Herleitung trifft dein eigenes Budget
           {error === 0
             ? " auf den Euro genau"
@@ -189,9 +189,9 @@ function CalibrationNote({
   }
 
   return (
-    <div className="mb-4 rounded-card border border-warn/30 bg-warn/5 px-4 py-3">
-      <p className="text-data-sm text-snow-muted">
-        <span className="font-bold uppercase tracking-wider text-warn">
+    <div className="mb-4 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
+      <p className="text-data-sm text-kb-grey-light">
+        <span className="font-bold uppercase tracking-wider text-kb-red">
           Ungeprüft:
         </span>{" "}
         {hasOwnBudget && error !== null ? (
@@ -208,7 +208,7 @@ function CalibrationNote({
           </>
         )}{" "}
         Gelesen wurde der Transfergewinn als{" "}
-        <span className="text-snow">{reading}</span>. Nimm die Budgets als grobe
+        <span className="text-kb-white">{reading}</span>. Nimm die Budgets als grobe
         Richtung, nicht als Beleg.
       </p>
     </div>

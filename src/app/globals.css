@@ -2,54 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Kickbase Corporate Design - Umsetzung der Guidelines.
+ *
+ * Das Identitaetssystem kennt zwei Schichten:
+ *   01 ANALYTICAL - das Punktraster. "A database of what happened on the
+ *      pitch", darunterliegend, sachlich.
+ *   02 EMOTIONAL  - Headline-Typo und Bild, darueber gelegt.
+ *
+ * Ein Daten-Dashboard ist fast vollstaendig Schicht 01. Deshalb liegt das
+ * Raster hier unter allem, und die zweite Schicht bleibt auf das reduziert,
+ * was wirklich Aufmerksamkeit verlangt.
+ */
+
 @layer base {
   html {
     color-scheme: dark;
   }
+
   body {
-    @apply bg-night-950 text-snow antialiased;
-    /* Sehr dezenter Rasenschimmer am oberen Rand - der einzige Verlauf im UI. */
+    @apply bg-kb-black text-kb-white antialiased;
+
+    /**
+     * Das Punktraster (Guidelines, Abschnitt System).
+     *
+     * Farbwahl nach der Freigabeliste: "KB Dark Grey grid on KB Grey and
+     * KB Black". KB Live Red ist als Rasterfarbe ausdruecklich verboten
+     * ("Don't use KB Live Red grid ever") - rot sind nur Muster, nie das
+     * Raster selbst.
+     *
+     * Die Rastergroesse ist bewusst fest verdrahtet und wird nirgends
+     * skaliert: "The grids size should remain consistent across all brand
+     * applications." Nicht gedreht, nicht verzerrt.
+     *
+     * Ersetzt den frueheren gruenen "Rasenschimmer" - einen Verlauf in einer
+     * Farbe, die es in der Marke gar nicht gibt.
+     */
     background-image: radial-gradient(
-      120% 60% at 50% -10%,
-      rgba(20, 229, 109, 0.08) 0%,
-      transparent 60%
+      circle at center,
+      theme("colors.kb.grey.dark") 1.1px,
+      transparent 1.2px
     );
+    background-size: theme("spacing.dot") theme("spacing.dot");
+    background-position: center top;
     background-attachment: fixed;
   }
-  /* Sichtbarer Tastaturfokus - ueberall, nicht nur wo es auffaellt. */
+
+  /**
+   * Tastaturfokus in KB Live Red. Ein Fokus ist genau der Fall, den die
+   * Guidelines mit "moments of importance" meinen - und er ist selten
+   * genug, dass der sparsame Umgang mit dem Akzent gewahrt bleibt.
+   */
   :focus-visible {
-    @apply outline-none ring-2 ring-kb ring-offset-2 ring-offset-night-950;
+    @apply outline-none ring-2 ring-kb-red ring-offset-2 ring-offset-kb-black;
   }
 }
 
 @layer components {
+  /**
+   * Karten sind KB Dark Grey ueber KB Black - die von den Guidelines
+   * erlaubte Schichtung fuer Tiefe und Struktur. Leicht durchscheinend,
+   * damit das Raster als unterste Schicht sichtbar bleibt.
+   */
   .card {
-    @apply rounded-card border border-night-700 bg-night-850 shadow-card;
+    @apply rounded-card border border-kb-line bg-kb-surface/90 shadow-card backdrop-blur-[1px];
   }
-  /* Kickbase setzt Labels laut, klein und in Versalien. */
+
+  /**
+   * Labels laut, klein und in Versalien - so verlangt es die Vorgabe fuer
+   * Metriken: "We pair these plus and minus icons with KB Volksans in full
+   * uppercase."
+   */
   .label {
-    @apply text-data-xs font-bold uppercase tracking-[0.12em] text-snow-faint;
+    @apply text-data-xs font-bold uppercase tracking-[0.12em] text-kb-grey;
   }
-  /* Ueberschriften eng gesetzt, in Versalien - die Marken-Handschrift. */
+
+  /**
+   * Ueberschriften: Zeilenabstand 0.9 und Versalien, wie fuer KB Pitch
+   * vorgegeben. Die Schrift selbst ist die Systemschrift - siehe
+   * tailwind.config.ts und die Community Policy.
+   */
   .display {
-    @apply font-extrabold uppercase tracking-[-0.01em];
+    @apply font-extrabold uppercase leading-[0.9] tracking-[-0.01em];
   }
-  /* Tabellarische Ziffern: Marktwerte springen beim Aktualisieren nicht. */
+
+  /**
+   * Tabellarische Ziffern. Entspricht der Guideline, in Metriken die
+   * monospaced Alternativen fuer 1 und 0 zu setzen - mit einer Systemschrift
+   * ist tabular-nums die naechstliegende Entsprechung. Marktwerte springen
+   * so beim Aktualisieren nicht.
+   */
   .num {
     font-variant-numeric: tabular-nums;
   }
+
   .chip {
-    @apply inline-flex items-center rounded-md border border-night-700 bg-night-800
-      px-2 py-0.5 text-data-xs font-bold uppercase tracking-wider text-snow-muted;
+    @apply inline-flex items-center rounded-md border border-kb-line bg-kb-raised
+      px-2 py-0.5 text-data-xs font-bold uppercase tracking-wider text-kb-grey-light;
   }
+
   .field {
-    @apply w-full rounded-lg border border-night-600 bg-night-900 px-3 py-2.5
-      text-data-sm text-snow placeholder:text-snow-faint focus:border-kb;
+    @apply w-full rounded-lg border border-kb-line-strong bg-kb-black/60 px-3 py-2.5
+      text-body text-kb-white placeholder:text-kb-grey focus:border-kb-red;
   }
+
+  /**
+   * Die Hauptaktion in KB Live Red mit schwarzer Schrift - eine der
+   * freigegebenen Kombinationen (5,4:1) und genau der Fall, fuer den der
+   * Akzent gedacht ist.
+   */
   .btn-primary {
-    @apply rounded-lg bg-kb px-4 py-2.5 text-sm font-bold uppercase tracking-wide
-      text-night-950 transition-colors hover:bg-kb-dim
-      disabled:cursor-not-allowed disabled:opacity-40;
+    @apply rounded-lg bg-kb-red px-4 py-3 text-data-sm font-bold uppercase tracking-wide
+      text-kb-black transition-opacity hover:opacity-90
+      disabled:cursor-not-allowed disabled:opacity-30;
   }
 }
 

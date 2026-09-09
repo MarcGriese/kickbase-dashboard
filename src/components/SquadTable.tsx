@@ -138,7 +138,7 @@ export function SquadTable({
   return (
     <section className="card overflow-hidden">
       {/* --------------------------------------------------------- Werkzeug */}
-      <div className="border-b border-night-700 px-4 py-3">
+      <div className="border-b border-kb-line px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="display mr-auto text-base">Kader</h2>
 
@@ -173,7 +173,7 @@ export function SquadTable({
             onClick={() => setDesc((d) => !d)}
             aria-label={desc ? "Aufsteigend sortieren" : "Absteigend sortieren"}
             title={desc ? "Größte zuerst" : "Kleinste zuerst"}
-            className="rounded-lg border border-night-600 bg-night-900 px-2.5 py-1.5 text-data-sm font-bold text-snow-muted transition-colors hover:border-kb hover:text-kb"
+            className="rounded-lg border border-kb-line-strong bg-kb-surface px-2.5 py-1.5 text-data-sm font-bold text-kb-grey-light transition-colors hover:border-kb-white hover:text-kb-white"
           >
             {desc ? "↓" : "↑"}
           </button>
@@ -191,8 +191,8 @@ export function SquadTable({
                 aria-pressed={active}
                 className={`rounded-md border px-2.5 py-1 text-data-xs font-bold uppercase tracking-wider transition-colors ${
                   active
-                    ? "border-kb/40 bg-kb/15 text-kb"
-                    : "border-night-700 bg-night-800 text-snow-muted hover:text-snow"
+                    ? "border-kb-white bg-kb-white text-kb-black"
+                    : "border-kb-line bg-kb-raised text-kb-grey-light hover:text-kb-white"
                 }`}
               >
                 {p ? POSITION_LABELS[p] : "Alle"}
@@ -205,7 +205,7 @@ export function SquadTable({
 
       {/* ------------------------------------------------------- Kopfzeile */}
       <div
-        className={`hidden border-b border-night-700 bg-night-900/60 px-4 py-2 ${GRID}`}
+        className={`hidden border-b border-kb-line bg-kb-surface/60 px-4 py-2 ${GRID}`}
       >
         <span />
         <span className="label">Spieler</span>
@@ -227,7 +227,7 @@ export function SquadTable({
           {visible.map((p) => (
             <li
               key={p.id}
-              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-night-700/70 px-4 py-3 last:border-0 hover:bg-night-800/50 sm:grid-cols-3 ${GRID}`}
+              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-kb-line/70 px-4 py-3 last:border-0 hover:bg-kb-raised/50 sm:grid-cols-3 ${GRID}`}
             >
               {/* Spieler ---------------------------------------------- */}
               {/* Ab lg loesen sich Foto und Name in eigene Rasterspalten auf. */}
@@ -239,7 +239,7 @@ export function SquadTable({
                     <span className="font-semibold">{p.fullName}</span>
                     <StatusFlag status={p.status} />
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-data-xs text-snow-faint">
+                  <div className="mt-0.5 flex items-center gap-1.5 text-data-xs text-kb-grey">
                     <TeamCrest
                       src={teamCrest(p.teamId)}
                       name={p.teamName || teamName(p.teamId)}
@@ -304,7 +304,7 @@ export function SquadTable({
                 const reasons = p.reasons.filter((r) => !/^Schnitt \d+$/.test(r));
                 if (!reasons.length) return null;
                 return (
-                  <p className="col-span-2 text-data-xs text-snow-faint sm:col-span-3 lg:col-span-10 lg:pl-[3.5rem]">
+                  <p className="col-span-2 text-data-xs text-kb-grey sm:col-span-3 lg:col-span-10 lg:pl-[3.5rem]">
                     {reasons.join(" · ")}
                   </p>
                 );
@@ -321,15 +321,15 @@ export function SquadTable({
 
       {/* ------------------------------------------------------------ Fuss */}
       {visible.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-night-700 bg-night-900/60 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-kb-line bg-kb-surface/60 px-4 py-2.5">
           <span className="label">
             {visible.length} von {players.length} Spielern
           </span>
-          <span className="num text-data-sm text-snow-muted">
+          <span className="num text-data-sm text-kb-grey-light">
             Marktwert der Auswahl:{" "}
-            <span className="font-bold text-snow">{eur(sumValue)}</span>
+            <span className="font-bold text-kb-white">{eur(sumValue)}</span>
           </span>
-          <span className="num text-data-sm text-snow-muted">
+          <span className="num text-data-sm text-kb-grey-light">
             Seit Kauf: <Delta value={sumGain} />
           </span>
         </div>

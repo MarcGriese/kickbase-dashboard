@@ -84,7 +84,7 @@ export default async function DashboardPage() {
     : `${forecastDays} Tage`;
   const matchdayLabel = schedule.nextMatchday
     ? `${schedule.nextMatchday}. Spieltag`
-    : "n├ñchster Spieltag";
+    : "nächster Spieltag";
 
   return (
     <>
@@ -92,11 +92,11 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
         {/* ----------------------------------------------------- Kopfzeile */}
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="display text-xl">├£bersicht</h1>
-          <p className="text-data-sm text-snow-muted">
+          <h1 className="display text-xl">Übersicht</h1>
+          <p className="text-data-sm text-kb-grey-light">
             {matchdayLabel} beginnt{" "}
-            <span className="font-semibold text-snow">{horizonLabel}</span>
-            {horizonDate && ` ┬À noch ${forecastDays} Tag${forecastDays === 1 ? "" : "e"}`}
+            <span className="font-semibold text-kb-white">{horizonLabel}</span>
+            {horizonDate && ` · noch ${forecastDays} Tag${forecastDays === 1 ? "" : "e"}`}
           </p>
         </div>
 
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
             hint={
               overview.teamValue === null
                 ? "aus den Marktwerten summiert"
-                : `${players.length} Spieler ┬À Summe der Marktwerte ${eur(summed)}`
+                : `${players.length} Spieler · Summe der Marktwerte ${eur(summed)}`
             }
           />
 
@@ -118,18 +118,18 @@ export default async function DashboardPage() {
             label="Max. Kaderwert zu Spieltagsbeginn"
             value={eur(room.squadValue)}
             accent
-            hint={`Teamwert ${eur(teamValue)} + Budget ${eur(budget ?? 0)} ÔÇô so viel Kader k├Ânntest du bis zum Anpfiff auf dem Platz haben.`}
+            hint={`Teamwert ${eur(teamValue)} + Budget ${eur(budget ?? 0)} – so viel Kader könntest du bis zum Anpfiff auf dem Platz haben.`}
           />
 
           <StatTile
             big
             label="Budget"
-            value={budget !== null ? eur(budget) : "ÔÇô"}
-            tone={budget !== null && budget < 0 ? "down" : "neutral"}
+            value={budget !== null ? eur(budget) : "–"}
+            tone={budget !== null && budget < 0 ? "alert" : "neutral"}
             hint={
               budget === null
                 ? "von der API nicht geliefert"
-                : `Bis ${eur(-room.maxNegative)} darfst du ins Minus (33 % des Kaderwerts) ┬À Spielraum insgesamt ${eur(room.spendable)} ┬À zum Spieltagsbeginn muss das Konto wieder im Plus stehen.`
+                : `Bis ${eur(-room.maxNegative)} darfst du ins Minus (33 % des Kaderwerts) · Spielraum insgesamt ${eur(room.spendable)} · zum Spieltagsbeginn muss das Konto wieder im Plus stehen.`
             }
           />
         </div>
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
             label="Letzte 24 Stunden"
             value={eurDelta(dayTotal)}
             tone={dayTotal > 0 ? "up" : dayTotal < 0 ? "down" : "neutral"}
-            hint="Marktwert ├╝ber alle Spieler"
+            hint="Marktwert über alle Spieler"
           />
           <StatTile
             label="Letzte 7 Tage"
@@ -151,7 +151,7 @@ export default async function DashboardPage() {
             label={`Prognose bis ${horizonLabel}`}
             value={eurDelta(forecastTotal)}
             tone={forecastTotal > 0 ? "up" : forecastTotal < 0 ? "down" : "neutral"}
-            hint={`Kader dann rund ${eur(summed + forecastTotal)} ÔÇô fortgeschriebener Trend, keine Kickbase-Formel.`}
+            hint={`Kader dann rund ${eur(summed + forecastTotal)} – fortgeschriebener Trend, keine Kickbase-Formel.`}
           />
         </div>
 
@@ -162,12 +162,12 @@ export default async function DashboardPage() {
         />
 
         {sells.length > 0 && (
-          <div className="mb-6 rounded-card border border-down/25 bg-down/5 px-4 py-3">
+          <div className="mb-6 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
             <p className="text-data-sm">
-              <span className="font-bold uppercase tracking-wider text-down">
+              <span className="font-bold uppercase tracking-wider text-kb-red">
                 Heute trennen:
               </span>{" "}
-              <span className="text-snow-muted">
+              <span className="text-kb-grey-light">
                 {sells.map((p) => p.fullName).join(", ")}
               </span>
             </p>
@@ -177,28 +177,29 @@ export default async function DashboardPage() {
         {/* --------------------------------------------------------- Kader */}
         <SquadTable players={players} horizon={horizonLabel} />
 
-        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-snow-faint">
+        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
           <p>
             Die Einschätzung gewichtet Marktwert-Trend, Punkte pro Million, Punkteschnitt,
-            Einsatzf├ñhigkeit und die St├ñrke der n├ñchsten Gegner. Sie ersetzt kein
-            eigenes Urteil ÔÇô bei Spielern kurz vor einem guten Spielplan kann Halten
+            Einsatzfähigkeit und die Stärke der nächsten Gegner. Sie ersetzt kein
+            eigenes Urteil – bei Spielern kurz vor einem guten Spielplan kann Halten
             trotz fallendem Marktwert richtig sein.
           </p>
           <p>
-            <span className="font-semibold text-snow-muted">Prognose:</span> 60 % der
+            <span className="font-semibold text-kb-grey-light">Prognose:</span> 60 % der
             Bewegung der letzten 24 Stunden plus 40 % des Wochenschnitts, pro Tag um
             15 % abklingend, hochgerechnet bis zum Anpfiff. Kickbase legt seine
-            Marktwertformel nicht offen ÔÇô das hier ist eine Fortschreibung, keine
+            Marktwertformel nicht offen – das hier ist eine Fortschreibung, keine
             Vorhersage.
           </p>
           <p>
-            <span className="font-semibold text-snow-muted">Gegnerfarben:</span> rot =
-            Gegner aus den oberen Tabellenr├ñngen, gelb = Mittelfeld, gr├╝n = machbar.
-            Heimspiele werden zwei Pl├ñtze milder, Ausw├ñrtsspiele zwei Pl├ñtze h├ñrter
-            gerechnet. Ohne Tabelle von der API bleibt alles gelb.
+            <span className="font-semibold text-kb-grey-light">Gegner:</span> rot
+            umrandet = Gegner aus den oberen Tabellenrängen, grau = Mittelfeld, weiß =
+            machbar. Heimspiele werden zwei Plätze milder, Auswärtsspiele zwei Plätze
+            härter gerechnet. Ohne Tabelle von der API bleibt alles grau. Der Klartext
+            steht in jedem Fall im Tooltip – die Farbe ist nie der einzige Hinweis.
           </p>
           <p>
-            <span className="font-semibold text-snow-muted">Minus-Grenze:</span> Dein
+            <span className="font-semibold text-kb-grey-light">Minus-Grenze:</span> Dein
             Konto darf bis zu {Math.round(MAX_NEGATIVE_SHARE * 100)} % des Kaderwerts
             (Teamwert + Budget) im Minus stehen.
           </p>

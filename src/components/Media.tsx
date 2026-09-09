@@ -30,7 +30,7 @@ export function PlayerPhoto({
 
   return (
     <div
-      className="relative shrink-0 overflow-hidden rounded-full border border-night-700 bg-night-800"
+      className="relative shrink-0 overflow-hidden rounded-full border border-kb-line bg-kb-raised"
       style={{ width: size, height: size }}
     >
       {src && !broken ? (
@@ -47,7 +47,7 @@ export function PlayerPhoto({
       ) : (
         <span
           aria-hidden
-          className="flex h-full w-full items-center justify-center text-data-xs font-bold text-snow-faint"
+          className="flex h-full w-full items-center justify-center text-data-xs font-bold text-kb-grey"
         >
           {initials || "–"}
         </span>
@@ -73,7 +73,7 @@ export function TeamCrest({
   if (!src || broken) {
     return (
       <span
-        className="inline-flex shrink-0 items-center justify-center rounded-sm bg-night-700 text-[0.6rem] font-bold text-snow-faint"
+        className="inline-flex shrink-0 items-center justify-center rounded-sm bg-kb-line text-[0.6rem] font-bold text-kb-grey"
         style={{ width: size, height: size }}
         title={name}
       >

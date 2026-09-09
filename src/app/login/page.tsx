@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrandMark } from "@/components/ui";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,11 +38,14 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5">
       <div className="animate-fade-up">
-        <div className="mb-1 flex items-center gap-2.5">
-          <BrandMark size={26} />
-          <h1 className="display text-2xl">Kaderzentrale</h1>
-        </div>
-        <p className="mb-8 pl-9 text-data-sm text-snow-muted">
+        {/*
+          Die Lockup-Variante wird laut Guidelines am haeufigsten benutzt.
+          Der grosszuegige Abstand darunter ist die geforderte Schutzzone.
+        */}
+        <BrandLogo variant="lockup" height={22} className="mb-7" />
+
+        <h1 className="display text-2xl">Kaderzentrale</h1>
+        <p className="mb-8 mt-3 max-w-sm text-body text-kb-grey-light">
           Deine Kickbase-Liga, auf Tagesentscheidungen heruntergebrochen.
         </p>
 
@@ -81,7 +84,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="league" className="label mb-1.5 block">
-              Liga <span className="normal-case text-snow-faint">(optional)</span>
+              Liga <span className="normal-case text-kb-grey">(optional)</span>
             </label>
             <input
               id="league"
@@ -96,7 +99,7 @@ export default function LoginPage() {
           {error && (
             <p
               role="alert"
-              className="rounded-lg border border-down/30 bg-down/10 px-3 py-2.5 text-data-sm text-down"
+              className="rounded-lg border-l-2 border-kb-red bg-kb-raised px-3 py-2.5 text-body text-kb-white"
             >
               {error}
             </p>
@@ -111,7 +114,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p className="mt-5 text-data-xs leading-relaxed text-snow-faint">
+        <p className="mt-5 text-data-xs leading-relaxed text-kb-grey">
           Die Zugangsdaten gehen direkt an Kickbase und werden nicht gespeichert.
           Der Token bleibt in einem httpOnly-Cookie auf deinem Rechner. Wenn du
           dich in der App mit Apple oder Facebook anmeldest, setz zuerst unter
