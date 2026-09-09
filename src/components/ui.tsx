@@ -1,4 +1,11 @@
-import { eur, POSITIONS, STATUS, teamCrest } from "@/lib/fields";
+import {
+  eur,
+  POSITIONS,
+  STATUS,
+  teamCrest,
+  PROGNOSIS_LABELS,
+  type StartProbability,
+} from "@/lib/fields";
 import type { Strength, Fixture } from "@/lib/fixtures";
 import type { RatedPlayer, RatedMarketPlayer } from "@/lib/advisor";
 import type { Change, PlayerTrend } from "@/lib/snapshot";
@@ -238,6 +245,46 @@ export function StatusFlag({ status }: { status: number }) {
     /* Ausfall ist ein Moment, der Aufmerksamkeit verlangt - also Live Red. */
     <span className="shrink-0 rounded border border-kb-red px-1.5 text-data-xs font-bold uppercase tracking-wider text-kb-red">
       {STATUS[status] ?? "Ausfall"}
+    </span>
+  );
+}
+
+/* ----------------------------------------------------- Startelf-Prognose */
+
+/**
+ * Kickbases Startelf-Prognose. Wie beim Spielplan traegt die Helligkeit die
+ * Bedeutung - die Marke kennt kein Gruen/Gelb. "Raus" ist das einzige, das
+ * eine Reaktion verlangt, und bekommt deshalb den roten Akzent.
+ *
+ * Zeigt bewusst nichts bei "unbekannt": solange die API die Prognose nicht
+ * bestaetigt herausgibt (siehe prognosisFrom in fields.ts), wird lieber keine
+ * geratene Angabe gemacht als eine falsche.
+ */
+const PROGNOSIS_STYLES: Record<Exclude<StartProbability, "unbekannt">, string> = {
+  start: "border-kb-line-strong text-kb-white",
+  wahrscheinlich: "border-kb-line-strong text-kb-grey-light",
+  bank: "border-kb-line text-kb-grey",
+  fraglich: "border-kb-line text-kb-grey",
+  raus: "border-kb-red text-kb-red",
+};
+
+const PROGNOSIS_GLYPH: Record<Exclude<StartProbability, "unbekannt">, string> = {
+  start: "★",
+  wahrscheinlich: "✓",
+  bank: "▽",
+  fraglich: "?",
+  raus: "✕",
+};
+
+export function PrognosisFlag({ prognosis }: { prognosis: StartProbability }) {
+  if (prognosis === "unbekannt") return null;
+  return (
+    <span
+      title={`Startelf-Prognose: ${PROGNOSIS_LABELS[prognosis]}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 text-data-xs font-bold uppercase tracking-wider ${PROGNOSIS_STYLES[prognosis]}`}
+    >
+      <span aria-hidden>{PROGNOSIS_GLYPH[prognosis]}</span>
+      {PROGNOSIS_LABELS[prognosis]}
     </span>
   );
 }

@@ -26,6 +26,9 @@ const FIELDS = {
   expiry: ["exs", "expiry"],
   seller: ["unm", "usnm"],
   offers: ["ofc"],
+  // Startelf-Prognose (blauer Stern / gruener Haken in der Kickbase-App).
+  // Die Kuerzel sind NICHT bestaetigt - siehe prognosisFrom() weiter unten.
+  prognosis: ["prg", "prob", "lineupProbability", "startProbability"],
 } as const;
 
 export type FieldKey = keyof typeof FIELDS;
@@ -65,6 +68,72 @@ export const STATUS: Record<number, string> = {
   8: "Gesperrt",
   16: "Nicht im Kader",
 };
+
+/* ---------------------------------------------------- Startelf-Prognose */
+
+/**
+ * Kickbases eigene Einschaetzung, ob ein Spieler auflaeuft - die Icons in der
+ * App (blauer Stern = sichere Startelf, gruener Haken = wahrscheinlich, Bank,
+ * fraglich, raus). Das ist etwas anderes als das Status-Feld (STATUS oben),
+ * das nur Fitness/Verfuegbarkeit meint (fit, verletzt, gesperrt ...).
+ */
+export type StartProbability =
+  | "start"
+  | "wahrscheinlich"
+  | "bank"
+  | "fraglich"
+  | "raus"
+  | "unbekannt";
+
+export const PROGNOSIS_LABELS: Record<Exclude<StartProbability, "unbekannt">, string> = {
+  start: "Sichere Startelf",
+  wahrscheinlich: "Wahrscheinlich",
+  bank: "Bank",
+  fraglich: "Fraglich",
+  raus: "Draußen",
+};
+
+/** Bekannte Klartext-Werte auf die Prognose-Stufen abbilden. */
+const PROGNOSIS_WORDS: Record<string, StartProbability> = {
+  start: "start",
+  starter: "start",
+  startelf: "start",
+  sure: "start",
+  likely: "wahrscheinlich",
+  probable: "wahrscheinlich",
+  wahrscheinlich: "wahrscheinlich",
+  bench: "bank",
+  bank: "bank",
+  doubtful: "fraglich",
+  fraglich: "fraglich",
+  questionable: "fraglich",
+  out: "raus",
+  raus: "raus",
+};
+
+/**
+ * EHRLICHE EINSCHRAENKUNG: Ob die inoffizielle API die Startelf-Prognose
+ * ueberhaupt herausgibt - und unter welchem Kuerzel und in welcher Kodierung -
+ * ist nicht bestaetigt. Diese Funktion mappt deshalb nur Werte, die sie
+ * zweifelsfrei erkennt (Klartext-Woerter), und gibt sonst "unbekannt" zurueck.
+ * Die Oberflaeche zeigt bei "unbekannt" nichts an, statt eine geratene Zahl
+ * als Stern oder Haken auszugeben.
+ *
+ * Sobald das echte Feld bekannt ist (z. B. per `python3 kickbase_advisor.py
+ * --debug 2> raw.txt`), ist DIES die einzige Stelle, die angepasst werden
+ * muss: das Kuerzel oben in FIELDS.prognosis ergaenzen und hier die numerische
+ * Kodierung eintragen.
+ */
+export function prognosisFrom(raw: Record<string, unknown> | null | undefined): StartProbability {
+  const v = pick<unknown>(raw, "prognosis", null);
+  if (v === null || v === undefined) return "unbekannt";
+  if (typeof v === "string") {
+    const key = v.trim().toLowerCase();
+    return PROGNOSIS_WORDS[key] ?? "unbekannt";
+  }
+  // Zahlencodes bewusst NICHT geraten - lieber nichts zeigen als Falsches.
+  return "unbekannt";
+}
 
 const CDN = "https://kickbase.b-cdn.net";
 

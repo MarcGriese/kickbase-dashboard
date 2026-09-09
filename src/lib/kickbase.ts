@@ -133,6 +133,46 @@ export async function getMarket(token: string, leagueId: string) {
 }
 
 /**
+ * Deine aktuell gesetzte Startelf.
+ *
+ * NICHT offiziell dokumentiert: es ist unklar, ob und unter welchem Pfad die
+ * API die gesetzte Aufstellung herausgibt. Wir probieren mehrere plausible
+ * Endpunkte und lesen die Spieler-IDs aus den gaengigen Formen aus. Findet
+ * sich nichts, kommt `null` zurueck - dann rechnet die Aufstellungsseite mit
+ * der empfohlenen Elf und sagt das auch. Eine fehlende Aufstellung darf nie
+ * das Dashboard zerlegen.
+ */
+export async function getLineup(
+  token: string,
+  leagueId: string
+): Promise<string[] | null> {
+  return firstOf<string[]>(
+    [
+      `/v4/leagues/${leagueId}/lineup`,
+      `/v4/leagues/${leagueId}/me/lineup`,
+      `/v4/leagues/${leagueId}/teamcenter/lineup`,
+      `/v4/leagues/${leagueId}/teamcenter`,
+    ],
+    token,
+    (d) => {
+      // Gaengige Formen: { lp: [...] }, { lineup: [...] }, { it: [...] },
+      // jeweils als reine IDs oder als Objekte mit id/i/pi.
+      const raw: any[] =
+        d?.lp ?? d?.lineup ?? d?.players ?? d?.pl ?? d?.it ?? [];
+      if (!Array.isArray(raw) || !raw.length) return null;
+      const ids = raw
+        .map((x) =>
+          typeof x === "object" && x !== null
+            ? String(x.i ?? x.id ?? x.pi ?? "")
+            : String(x)
+        )
+        .filter((s) => s && s !== "undefined");
+      return ids.length ? ids : null;
+    }
+  );
+}
+
+/**
  * Rangliste der Liga. Ohne `dayNumber` die Gesamtwertung; die Antwort traegt
  * pro Manager auch `mdp`, die Punkte des zuletzt gewerteten Spieltags.
  */

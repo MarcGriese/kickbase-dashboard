@@ -49,6 +49,7 @@ Einstellungen → Profil ein eigenes Passwort.
 | Route            | Inhalt                                                              |
 | ---------------- | ------------------------------------------------------------------- |
 | `/dashboard`     | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Verlauf, P/Mio    |
+| `/aufstellung`   | Empfohlene Startelf, aktuelle Aufstellung und Wechsel vom Markt      |
 | `/markt`         | Transfermarkt mit Kaufempfehlung und Maximalgebot                    |
 | `/liga`          | Tabelle mit Rückstand auf Platz 1                                    |
 | `/api/snapshot`  | GET: Zustand des Speichers. POST: Schnappschuss anlegen              |
@@ -119,6 +120,45 @@ Marktwert: ein Aufschlag frisst die Rendite, ein Schnäppchen verbessert sie.
 Spieler ohne einen einzigen Einsatz ziehen den Median nicht nach unten und
 werden auch nicht dafür abgestraft – sie bekommen den Hinweis "noch keine
 Punkte".
+
+## Aufstellung: empfohlene Elf und Wechsel
+
+Die Seite `/aufstellung` beantwortet drei Fragen, die das reine Kader- und
+Marktbild offen lässt.
+
+**Empfohlene Startelf.** Aus dem Kader wird über alle von Kickbase erlaubten
+Grundordnungen (3-4-3 bis 5-4-1) die punktbeste einsatzfähige Elf gebildet.
+Grundlage ist der *Startwert* eines Spielers: sein Punkteschnitt, halbiert bei
+„angeschlagen"/„Aufbautraining" und um 10 % nach der Stärke des nächsten
+Gegners justiert. Verletzte, gesperrte und nicht gemeldete Spieler fallen mit
+Wert 0 heraus. Das ist eine nachvollziehbare Fortschreibung, **keine**
+Kickbase-Prognose – die Logik steht offen in `src/lib/lineup.ts` und ist als
+einziger nicht gegen die API prüfbarer Teil in `src/lib/lineup.test.ts`
+getestet.
+
+**Wechsel vom Markt.** Jeder Marktspieler wird positionsgleich gegen deine
+Stammspieler gehalten. Vorgeschlagen wird nur, wer einen Stammspieler auf
+seiner Position um mindestens 10 % im Startwert schlägt **und** bezahlbar
+bleibt: „Netto nach Verkauf" ist das Maximalgebot (inklusive des ligaüblichen
+Aufschlags aus dem Markt, siehe unten) abzüglich des Marktwerts, den der
+weichende Spieler wieder einbringt. Ein Plus heißt, der Tausch spült Geld in
+die Kasse. Jeder Stammspieler wird höchstens einmal ersetzt, jeder Zugang
+höchstens einmal geholt.
+
+**Ehrliche Einschränkungen.** Zwei Dinge hängen an Feldern, die die
+inoffizielle API nicht bestätigt hergibt:
+
+- *Deine gesetzte Aufstellung* wird über mehrere plausible Endpunkte versucht
+  (`getLineup` in `src/lib/kickbase.ts`). Liefert keiner etwas, vergleichen die
+  Wechsel-Empfehlungen gegen die berechnete beste Elf statt gegen deine echte –
+  und die Seite sagt das auch.
+- *Die Startelf-Prognose* (blauer Stern / grüner Haken in der App) ist etwas
+  anderes als das Status-Feld (fit, verletzt, gesperrt). Ob und unter welchem
+  Kürzel die API sie herausgibt, ist nicht bestätigt. `prognosisFrom` in
+  `src/lib/fields.ts` mappt deshalb nur zweifelsfrei erkennbare Werte und zeigt
+  sonst nichts – lieber keine Angabe als eine geratene. Sobald das echte Feld
+  bekannt ist (`python3 kickbase_advisor.py --debug 2> raw.txt`), ist das die
+  einzige Stelle, die angepasst werden muss.
 
 ## Wie das Maximalgebot zustande kommt
 
