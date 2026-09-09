@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "snapshot": "curl -fsS -X POST -H \"Authorization: Bearer ${SNAPSHOT_SECRET}\" \"${KB_URL:-http://localhost:3000}/api/snapshot\""
   },
   "dependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^12.11.1",
     "next": "^14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",

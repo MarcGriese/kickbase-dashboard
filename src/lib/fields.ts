@@ -20,7 +20,7 @@ const FIELDS = {
   teamId: ["tid", "teamId"],
   teamName: ["tn", "teamName"],
   trend: ["mvt"],
-  image: ["pim", "im", "pimg", "playerImage", "image"],
+  image: ["pim", "im", "pimg", "playerImage"],
   teamImage: ["tim", "teamImage", "tlogo"],
   price: ["prc", "price"],
   expiry: ["exs", "expiry"],
@@ -96,10 +96,12 @@ export function eur(n: number | null | undefined): string {
   return `${sign}${Math.round(a)}`;
 }
 
-export function eurDelta(n: number | null | undefined): string {
-  if (!n) return "±0";
-  return (n > 0 ? "+" : "") + eur(n);
-}
+/*
+ * eurDelta() ist mit dem Corporate Design entfallen. Das Vorzeichen ist dort
+ * kein Textzeichen mehr, sondern das Plus/Minus-Motiv der Timestamps - es
+ * wird in <Timestamp> getrennt vom Wert gesetzt. Wer ein vorzeichenbehaftetes
+ * Textformat braucht, nimmt eur(Math.abs(n)) und setzt das Zeichen selbst.
+ */
 
 export function pct(part: number, whole: number): number {
   if (!whole) return 0;

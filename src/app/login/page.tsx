@@ -44,8 +44,8 @@ export default function LoginPage() {
         */}
         <BrandLogo variant="lockup" height={22} className="mb-7" />
 
-        <h1 className="display text-2xl">Kaderzentrale</h1>
-        <p className="mb-8 mt-3 max-w-sm text-body text-kb-grey-light">
+        <h1 className="kb-headline text-headline">Kaderzentrale</h1>
+        <p className="mb-8 mt-3 max-w-sm text-body text-kb-grey">
           Deine Kickbase-Liga, auf Tagesentscheidungen heruntergebrochen.
         </p>
 
@@ -108,7 +108,7 @@ export default function LoginPage() {
           <button
             onClick={anmelden}
             disabled={busy || !email || !password}
-            className="btn-primary w-full"
+            className="w-full rounded-lg bg-kb-red py-3 text-data-sm font-bold uppercase tracking-wide text-kb-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
           >
             {busy ? "Melde an …" : "Anmelden"}
           </button>

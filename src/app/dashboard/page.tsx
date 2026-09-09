@@ -1,21 +1,23 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { StatTile, SnapshotNotice } from "@/components/ui";
-import { SquadTable } from "@/components/SquadTable";
-import { getToken, getLeagueId } from "@/lib/session";
 import {
-  getSquad,
-  getTeamOverview,
-  getMatchdays,
-  getCompetitionTable,
-  KickbaseError,
-} from "@/lib/kickbase";
+  SquadRow,
+  StatTile,
+  Empty,
+  SnapshotNotice,
+  ActionStrip,
+} from "@/components/ui";
+import { getToken, getLeagueId } from "@/lib/session";
+import { getSquad, getBudget, KickbaseError } from "@/lib/kickbase";
 import { rateOwn, medianPpm } from "@/lib/advisor";
-import { buildSchedule, buildTable } from "@/lib/fixtures";
-import { daysUntil } from "@/lib/forecast";
-import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
-import { eur, eurDelta, shortDate, pick } from "@/lib/fields";
-import { compareWithHistory, countSnapshots, daysBetween, berlinDay } from "@/lib/snapshot";
+import { eur, pick } from "@/lib/fields";
+import {
+  compareWithHistory,
+  compareTeamValue,
+  countSnapshots,
+  daysBetween,
+  berlinDay,
+} from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,18 @@ export default async function DashboardPage() {
       medianPpm: reference,
       trends: history.byPlayer,
     })
+  // Hier trifft das Jetzt auf das Gedaechtnis: die eben geholten Marktwerte
+  // werden gegen die gespeicherten Staende gehalten, bevor irgendetwas
+  // bewertet wird. Ohne Datei bleibt `trends` leer und die App sagt das.
+  const live = squadRaw.map((raw) => ({
+    playerId: String(pick(raw, "id", "")),
+    marketValue: Number(pick(raw, "marketValue", 0)) || 0,
+  }));
+  const history = compareWithHistory(leagueId, live);
+
+  const reference = medianPpm(squadRaw);
+  const players = squadRaw.map((raw) =>
+    rateOwn(raw, { medianPpm: reference, trends: history.byPlayer })
   );
 
   const ORDER = { verkaufen: 0, halten: 1, "stark-halten": 2 } as const;
@@ -77,6 +91,10 @@ export default async function DashboardPage() {
 
   const room = budgetRoom(teamValue, budget);
   const sells = players.filter((p) => p.verdict === "verkaufen");
+  const teamChange = compareTeamValue(leagueId, teamValue);
+
+  const ref = history.reference;
+  const refAge = ref ? daysBetween(ref.day, berlinDay()) : null;
 
   const horizonDate = schedule.nextKickoff;
   const horizonLabel = horizonDate
@@ -89,40 +107,27 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
-        {/* ----------------------------------------------------- Kopfzeile */}
-        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="display text-xl">Übersicht</h1>
-          <p className="text-data-sm text-kb-grey-light">
-            {matchdayLabel} beginnt{" "}
-            <span className="font-semibold text-kb-white">{horizonLabel}</span>
-            {horizonDate && ` · noch ${forecastDays} Tag${forecastDays === 1 ? "" : "e"}`}
-          </p>
-        </div>
-
-        {/* -------------------------------------------------------- Kachel */}
-        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <main className="mx-auto max-w-6xl animate-fade-up px-4 py-6">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <StatTile label="Teamwert" value={eur(teamValue)} />
           <StatTile
-            big
-            label="Teamwert"
-            value={eur(teamValue)}
+            label="Heute"
+            value={eur(Math.abs(dayTotal))}
+            delta={dayTotal}
+            hint="Marktwert über alle Spieler"
+          />
+
+          <StatTile
+            label={teamChange ? `Seit ${teamChange.day.slice(5)}` : "Verlauf"}
+            value={teamChange ? eur(Math.abs(teamChange.delta)) : "–"}
+            delta={teamChange ? teamChange.delta : undefined}
             hint={
-              overview.teamValue === null
-                ? "aus den Marktwerten summiert"
-                : `${players.length} Spieler · Summe der Marktwerte ${eur(summed)}`
+              teamChange
+                ? `${Math.abs(teamChange.pct).toFixed(1)} % in ${teamChange.ageDays} Tagen`
+                : "noch kein gespeicherter Stand"
             }
           />
-
           <StatTile
-            big
-            label="Max. Kaderwert zu Spieltagsbeginn"
-            value={eur(room.squadValue)}
-            accent
-            hint={`Teamwert ${eur(teamValue)} + Budget ${eur(budget ?? 0)} – so viel Kader könntest du bis zum Anpfiff auf dem Platz haben.`}
-          />
-
-          <StatTile
-            big
             label="Budget"
             value={budget !== null ? eur(budget) : "–"}
             tone={budget !== null && budget < 0 ? "alert" : "neutral"}
@@ -156,54 +161,41 @@ export default async function DashboardPage() {
         </div>
 
         <SnapshotNotice
-          day={history.reference?.day ?? null}
-          ageDays={history.reference ? daysBetween(history.reference.day, berlinDay()) : null}
+          day={ref?.day ?? null}
+          ageDays={refAge}
           count={countSnapshots(leagueId)}
         />
 
-        {sells.length > 0 && (
-          <div className="mb-6 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
-            <p className="text-data-sm">
-              <span className="font-bold uppercase tracking-wider text-kb-red">
-                Heute trennen:
-              </span>{" "}
-              <span className="text-kb-grey-light">
-                {sells.map((p) => p.fullName).join(", ")}
-              </span>
-            </p>
+        <ActionStrip title="Heute trennen" names={sells.map((p) => p.name)} />
+
+        <section className="card overflow-hidden">
+          <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
+            <h2 className="kb-headline">Dein Kader</h2>
+            <span className="label">Verkaufskandidaten zuerst</span>
           </div>
-        )}
 
-        {/* --------------------------------------------------------- Kader */}
-        <SquadTable players={players} horizon={horizonLabel} />
+          {players.length ? (
+            <ul>
+              {players.map((p) => (
+                <SquadRow key={p.id} p={p} median={reference} />
+              ))}
+            </ul>
+          ) : (
+            <Empty
+              title="Noch kein Spieler im Kader"
+              hint="Hol dir im Transfermarkt deine ersten Spieler."
+            />
+          )}
+        </section>
 
-        <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
-          <p>
-            Die Einschätzung gewichtet Marktwert-Trend, Punkte pro Million, Punkteschnitt,
-            Einsatzfähigkeit und die Stärke der nächsten Gegner. Sie ersetzt kein
-            eigenes Urteil – bei Spielern kurz vor einem guten Spielplan kann Halten
-            trotz fallendem Marktwert richtig sein.
-          </p>
-          <p>
-            <span className="font-semibold text-kb-grey-light">Prognose:</span> 60 % der
-            Bewegung der letzten 24 Stunden plus 40 % des Wochenschnitts, pro Tag um
-            15 % abklingend, hochgerechnet bis zum Anpfiff. Kickbase legt seine
-            Marktwertformel nicht offen – das hier ist eine Fortschreibung, keine
-            Vorhersage.
-          </p>
-          <p>
-            <span className="font-semibold text-kb-grey-light">Gegner:</span> rot
-            umrandet = Gegner aus den oberen Tabellenrängen, grau = Mittelfeld, weiß =
-            machbar. Heimspiele werden zwei Plätze milder, Auswärtsspiele zwei Plätze
-            härter gerechnet. Ohne Tabelle von der API bleibt alles grau. Der Klartext
-            steht in jedem Fall im Tooltip – die Farbe ist nie der einzige Hinweis.
-          </p>
-          <p>
-            <span className="font-semibold text-kb-grey-light">Minus-Grenze:</span> Dein
-            Konto darf bis zu {Math.round(MAX_NEGATIVE_SHARE * 100)} % des Kaderwerts
-            (Teamwert + Budget) im Minus stehen.
-          </p>
-        </div>
+        <p className="mt-4 max-w-2xl text-data-xs leading-relaxed text-kb-grey">
+          Die Einschätzung gewichtet Marktwert-Verlauf, Punkte je Million und
+          Einsatzfähigkeit. P/Mio wird gegen den Median deines eigenen Kaders
+          gemessen, nicht gegen eine feste Zahl – was ein guter Gegenwert ist,
+          hängt am Preisniveau der Saison. Sie ersetzt kein eigenes Urteil: bei
+          Spielern kurz vor einem guten Spielplan kann Halten trotz fallendem
+          Marktwert richtig sein.
+        </p>
       </main>
     </>
   );

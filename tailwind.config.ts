@@ -4,14 +4,12 @@ import type { Config } from "tailwindcss";
  * Kickbase Corporate Design.
  *
  * Die Werte stammen aus den offiziellen Brand Guidelines (brand.kickbase.com,
- * Seiten Colour und System). Vorher standen hier aus dem App-Auftritt
- * abgeleitete Schaetzwerte - unter anderem ein signalgruener Akzent, den es
- * in der Marke gar nicht gibt.
+ * Seiten Colour und System), nicht aus einer Annaeherung ans App-Aussehen.
  *
  * Kernaussage der Guidelines: "At its core, Kickbase is always black and
  * white. We use color sparingly and purposefully for maximum impact."
  * KB Live Red ist der einzige Akzent und steht fuer "moments of importance,
- * excitement, and emphasis" - nicht fuer Dekoration und nicht fuer "negativ".
+ * excitement, and emphasis" - nicht fuer Dekoration.
  *
  * Was hier NICHT steht: die Hausschriften KB Pitch und KB Volksans. Die
  * Community Policy im Logo-Kit verbietet ihre Nutzung ausdruecklich
@@ -22,16 +20,18 @@ import type { Config } from "tailwindcss";
 /**
  * Die Guidelines kennen nur sechs Farben. Fuer Karten und Rahmen braucht ein
  * Dashboard Zwischenstufen - die entstehen ausschliesslich durch Mischung von
- * KB Dark Grey ueber KB Black. Das ist die ausdruecklich erlaubte Schichtung:
- * "Subtle, low-contrast pairings like KB Dark Grey on KB Black can be used
- * for layering, depth, and background structure."
+ * KB Dark Grey ueber KB Black. Das ist die von den Guidelines ausdruecklich
+ * erlaubte Schichtung: "Subtle, low-contrast pairings like KB Dark Grey on
+ * KB Black can be used for layering, depth, and background structure."
  * Keine erfundenen Farbtoene, nur Anteile zweier Markenfarben.
  */
 const BLACK = [19, 20, 23] as const; // #131417
 const DARK_GREY = [71, 75, 78] as const; // #474B4E
 
 function layer(alpha: number): string {
-  const mix = BLACK.map((b, i) => Math.round(b + (DARK_GREY[i] - b) * alpha));
+  const mix = BLACK.map((b, i) =>
+    Math.round(b + (DARK_GREY[i] - b) * alpha)
+  );
   return `#${mix.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
@@ -54,7 +54,7 @@ const config: Config = {
           /**
            * KB Dark Grey ist eine STRUKTURFARBE, keine Textfarbe.
            * Auf KB Black kommt sie auf 2,09:1 und liegt damit weit unter den
-           * 4,5:1, die lesbarer Text braucht. Die Guidelines geben die
+           * 4,5:1, die lesbarer Fliesstext braucht. Die Guidelines geben die
            * Paarung nur fuer "layering, depth, and background structure" frei.
            *
            * Als Text taugen auf KB Black:
@@ -66,7 +66,7 @@ const config: Config = {
 
           // Schichtung: KB Dark Grey ueber KB Black, in Stufen.
           surface: layer(0.07), // Karte
-          raised: layer(0.12), // Karte im Hover, Chip
+          raised: layer(0.12), // Karte im Hover
           line: layer(0.26), // Rahmen
           "line-strong": layer(0.42), // Rahmen, betont
         },
@@ -80,7 +80,7 @@ const config: Config = {
          *
          * Uebernommen sind die Satzregeln der Guidelines: Headlines eng
          * gesetzt und versal, Fliesstext mit weitem Zeilenabstand. Siehe die
-         * Zeilenhoehen unten und .display in globals.css.
+         * Zeilenhoehen unten und .kb-headline in globals.css.
          */
         sans: [
           "ui-sans-serif",
@@ -97,6 +97,8 @@ const config: Config = {
 
       fontSize: {
         // Guidelines: Headline-Leading 0.9, Subheader 1.18, Body 1.4.
+        headline: ["2.25rem", { lineHeight: "0.9", letterSpacing: "-0.02em" }],
+        "headline-sm": ["1.5rem", { lineHeight: "0.9", letterSpacing: "-0.015em" }],
         subhead: ["1.0625rem", { lineHeight: "1.18" }],
         body: ["0.9375rem", { lineHeight: "1.4" }],
         // Enge, datenlastige Skala - die Zahlen sind der Inhalt.
@@ -111,6 +113,7 @@ const config: Config = {
       },
 
       borderRadius: {
+        // Die Logo-Kacheln der Guidelines sind deutlich, aber nicht rund.
         card: "0.75rem",
       },
 
