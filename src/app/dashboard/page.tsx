@@ -26,17 +26,39 @@ export default async function DashboardPage() {
   const leagueId = getLeagueId();
   if (!token || !leagueId) redirect("/login");
 
-  let squadRaw, budget;
+  let squadRaw, overview, matchdaysRaw, tableRaw;
   try {
-    [squadRaw, budget] = await Promise.all([
+    [squadRaw, overview, matchdaysRaw, tableRaw] = await Promise.all([
       getSquad(token, leagueId),
-      getBudget(token, leagueId),
+      getTeamOverview(token, leagueId),
+      getMatchdays(token),
+      getCompetitionTable(token),
     ]);
   } catch (err) {
     if (err instanceof KickbaseError && err.status === 401) redirect("/login");
     throw err;
   }
 
+  const table = buildTable(tableRaw);
+  const schedule = buildSchedule(matchdaysRaw, table);
+  const forecastDays = daysUntil(schedule.nextKickoff);
+
+  const history = compareWithHistory(
+    leagueId,
+    squadRaw.map((raw) => ({
+      playerId: String(pick(raw, "id", "")),
+      marketValue: Number(pick(raw, "marketValue", 0)) || 0,
+    }))
+  );
+  const reference = medianPpm(squadRaw);
+
+  const players = squadRaw.map((raw) =>
+    rateOwn(raw, {
+      fixturesByTeam: schedule.byTeam,
+      forecastDays,
+      medianPpm: reference,
+      trends: history.byPlayer,
+    })
   // Hier trifft das Jetzt auf das Gedaechtnis: die eben geholten Marktwerte
   // werden gegen die gespeicherten Staende gehalten, bevor irgendetwas
   // bewertet wird. Ohne Datei bleibt `trends` leer und die App sagt das.
@@ -56,13 +78,31 @@ export default async function DashboardPage() {
     (a, b) => ORDER[a.verdict] - ORDER[b.verdict] || b.marketValue - a.marketValue
   );
 
-  const teamValue = players.reduce((s, p) => s + p.marketValue, 0);
+  /* ------------------------------------------------------------ Kennzahlen */
+
+  const summed = players.reduce((s, p) => s + p.marketValue, 0);
+  // Kickbase fuehrt den Teamwert selbst - die Summe ist nur die Rueckfallebene.
+  const teamValue = overview.teamValue ?? summed;
+  const budget = overview.budget;
+
   const dayTotal = players.reduce((s, p) => s + p.dayDelta, 0);
+  const weekTotal = players.reduce((s, p) => s + p.weekDelta, 0);
+  const forecastTotal = players.reduce((s, p) => s + p.forecast.delta, 0);
+
+  const room = budgetRoom(teamValue, budget);
   const sells = players.filter((p) => p.verdict === "verkaufen");
   const teamChange = compareTeamValue(leagueId, teamValue);
 
   const ref = history.reference;
   const refAge = ref ? daysBetween(ref.day, berlinDay()) : null;
+
+  const horizonDate = schedule.nextKickoff;
+  const horizonLabel = horizonDate
+    ? shortDate(horizonDate)
+    : `${forecastDays} Tage`;
+  const matchdayLabel = schedule.nextMatchday
+    ? `${schedule.nextMatchday}. Spieltag`
+    : "nächster Spieltag";
 
   return (
     <>
@@ -76,6 +116,7 @@ export default async function DashboardPage() {
             delta={dayTotal}
             hint="Marktwert über alle Spieler"
           />
+
           <StatTile
             label={teamChange ? `Seit ${teamChange.day.slice(5)}` : "Verlauf"}
             value={teamChange ? eur(Math.abs(teamChange.delta)) : "–"}
@@ -89,12 +130,33 @@ export default async function DashboardPage() {
           <StatTile
             label="Budget"
             value={budget !== null ? eur(budget) : "–"}
-            hint={budget === null ? "von der API nicht geliefert" : undefined}
+            tone={budget !== null && budget < 0 ? "alert" : "neutral"}
+            hint={
+              budget === null
+                ? "von der API nicht geliefert"
+                : `Bis ${eur(-room.maxNegative)} darfst du ins Minus (33 % des Kaderwerts) · Spielraum insgesamt ${eur(room.spendable)} · zum Spieltagsbeginn muss das Konto wieder im Plus stehen.`
+            }
+          />
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatTile
+            label="Letzte 24 Stunden"
+            value={eurDelta(dayTotal)}
+            tone={dayTotal > 0 ? "up" : dayTotal < 0 ? "down" : "neutral"}
+            hint="Marktwert über alle Spieler"
           />
           <StatTile
-            label="Kader"
-            value={String(players.length)}
-            hint={`${sells.length} zum Verkauf vorgemerkt`}
+            label="Letzte 7 Tage"
+            value={eurDelta(weekTotal)}
+            tone={weekTotal > 0 ? "up" : weekTotal < 0 ? "down" : "neutral"}
+            hint="Wochenbewegung des Kaders"
+          />
+          <StatTile
+            label={`Prognose bis ${horizonLabel}`}
+            value={eurDelta(forecastTotal)}
+            tone={forecastTotal > 0 ? "up" : forecastTotal < 0 ? "down" : "neutral"}
+            hint={`Kader dann rund ${eur(summed + forecastTotal)} – fortgeschriebener Trend, keine Kickbase-Formel.`}
           />
         </div>
 

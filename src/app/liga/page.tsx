@@ -1,45 +1,101 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { Empty } from "@/components/ui";
+import { LeagueTable, LeagueLead, type LeagueRow } from "@/components/LeagueTable";
 import { getToken, getLeagueId } from "@/lib/session";
-import { getRanking, KickbaseError } from "@/lib/kickbase";
+import {
+  getRanking,
+  getBudget,
+  getManagerDashboard,
+  getManagerSquad,
+  mapLimit,
+  KickbaseError,
+} from "@/lib/kickbase";
+import {
+  calibrate,
+  deriveBudget,
+  parseRanking,
+  rulesFromEnv,
+  startCapital,
+  sumUnrealized,
+  type ManagerRow,
+} from "@/lib/league";
+import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
 import { eur } from "@/lib/fields";
 
 export const dynamic = "force-dynamic";
 
-interface Manager {
-  id: string;
-  name: string;
-  points: number;
-  teamValue: number | null;
-  isMe: boolean;
-}
+/** Gleichzeitige Anfragen an die Kickbase-API. */
+const CONCURRENCY = 6;
 
 export default async function LigaPage() {
   const token = getToken();
   const leagueId = getLeagueId();
   if (!token || !leagueId) redirect("/login");
 
-  let raw;
+  const rules = rulesFromEnv(process.env);
+
+  let rankingRaw, myBudget;
   try {
-    raw = await getRanking(token, leagueId);
+    [rankingRaw, myBudget] = await Promise.all([
+      getRanking(token, leagueId),
+      getBudget(token, leagueId),
+    ]);
   } catch (err) {
     if (err instanceof KickbaseError && err.status === 401) redirect("/login");
     throw err;
   }
 
-  const meId = String(raw.me?.i ?? raw.mu ?? "");
-  const items: any[] = raw.us ?? raw.it ?? raw.users ?? [];
+  const managers = parseRanking(rankingRaw);
 
-  const managers: Manager[] = items.map((u) => ({
-    id: String(u.i ?? u.id ?? ""),
-    name: String(u.n ?? u.name ?? "Manager"),
-    points: Number(u.sp ?? u.p ?? u.points ?? 0),
-    teamValue: u.tv ?? u.teamValue ?? null,
-    isMe: String(u.i ?? u.id ?? "") === meId,
-  }));
+  // Pro Manager Dashboard (Transfergewinn) und Kader (stille Reserven).
+  // Beides darf einzeln fehlschlagen - dann bleibt die Zeile unvollstaendig.
+  const enriched: ManagerRow[] = await mapLimit(managers, CONCURRENCY, async (m) => {
+    if (!m.id) return m;
+    const [dash, squad] = await Promise.all([
+      getManagerDashboard(token, leagueId, m.id),
+      getManagerSquad(token, leagueId, m.id),
+    ]);
+    return {
+      ...m,
+      teamValue: m.teamValue ?? numOrNull(dash?.tv),
+      profit: numOrNull(dash?.prft),
+      unrealized: sumUnrealized(squad),
+    };
+  });
 
-  const leader = managers[0]?.points ?? 0;
+  // Der einzige Kontostand, den wir sicher kennen, ist der eigene. Er
+  // entscheidet, welche Lesart von "prft" fuer alle gilt.
+  const me = enriched.find((m) => m.isMe) ?? null;
+  const calibration = calibrate(me, myBudget, rules);
+
+  const rows: LeagueRow[] = enriched.map((m) => {
+    // Beim eigenen Konto zaehlt der echte Wert, nicht die Herleitung.
+    const budget =
+      m.isMe && myBudget !== null
+        ? myBudget
+        : deriveBudget(m, rules, calibration.reading);
+
+    const room =
+      budget !== null && m.teamValue !== null
+        ? budgetRoom(m.teamValue, budget)
+        : null;
+
+    return {
+      id: m.id,
+      name: m.name,
+      points: m.points,
+      matchdayPoints: m.matchdayPoints,
+      teamValue: m.teamValue,
+      profit: m.profit,
+      budget,
+      squadValue: room?.squadValue ?? null,
+      maxNegative: room?.maxNegative ?? null,
+      isMe: m.isMe,
+    };
+  });
+
+  const matchday = numOrNull(rankingRaw?.day ?? rankingRaw?.cd ?? rankingRaw?.md);
+  const derivedCount = rows.filter((r) => !r.isMe && r.budget !== null).length;
 
   return (
     <>
@@ -112,4 +168,74 @@ export default async function LigaPage() {
       </main>
     </>
   );
+}
+
+/**
+ * Sagt vor der Tabelle, ob den hergeleiteten Kontostaenden zu trauen ist.
+ * Ohne diese Zeile waeren es Zahlen ohne Herkunft.
+ */
+function CalibrationNote({
+  trusted,
+  error,
+  reading,
+  derivedCount,
+  capital,
+  hasOwnBudget,
+}: {
+  trusted: boolean;
+  error: number | null;
+  reading: string;
+  derivedCount: number;
+  capital: number;
+  hasOwnBudget: boolean;
+}) {
+  if (!derivedCount) return null;
+
+  if (trusted && error !== null) {
+    return (
+      <div className="mb-4 rounded-card border border-kb-line bg-kb-surface/90 px-4 py-3">
+        <p className="text-data-sm text-kb-grey-light">
+          <span className="font-bold uppercase tracking-wider text-kb-white">Geprüft:</span>{" "}
+          Die Herleitung trifft dein eigenes Budget
+          {error === 0
+            ? " auf den Euro genau"
+            : ` bis auf ${eur(Math.abs(error))}`}
+          . Die {derivedCount} anderen Kontostände sind nach derselben Rechnung
+          entstanden und damit belastbar.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
+      <p className="text-data-sm text-kb-grey-light">
+        <span className="font-bold uppercase tracking-wider text-kb-red">
+          Ungeprüft:
+        </span>{" "}
+        {hasOwnBudget && error !== null ? (
+          <>
+            Die Herleitung verfehlt dein eigenes Budget um {eur(Math.abs(error))} –
+            mehr als das eine Prozent des Startkapitals ({eur(capital)}), das noch
+            als Rundung durchgeht. Wahrscheinlich stimmen die Startwerte der Liga
+            nicht, oder es werden doch Boni ausgezahlt.
+          </>
+        ) : (
+          <>
+            Ohne deinen eigenen Kontostand lässt sich die Rechnung nicht
+            gegenprüfen. Die Zahlen sind eine Herleitung, keine Auskunft der API.
+          </>
+        )}{" "}
+        Gelesen wurde der Transfergewinn als{" "}
+        <span className="text-kb-white">{reading}</span>. Nimm die Budgets als grobe
+        Richtung, nicht als Beleg.
+      </p>
+    </div>
+  );
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }

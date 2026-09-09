@@ -31,7 +31,7 @@ export function Nav() {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="order-3 flex w-full items-center gap-1 sm:order-2 sm:w-auto">
           {LINKS.map((l) => {
             const active = pathname === l.href;
             return (

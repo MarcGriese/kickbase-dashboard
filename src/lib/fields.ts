@@ -1,30 +1,24 @@
 /**
  * Kickbase liefert extrem kurze Feldnamen ("mv", "ap", "sdmvt", ...).
  * Diese Datei ist die einzige Stelle, an der diese Kuerzel auftauchen.
- * Wenn Kickbase die API aendert, passt du nur FIELDS an - sonst nichts.
- *
- * Verifiziert gegen die v4-Doku (Squad-Beispielantwort):
- *   mv    aktueller Marktwert
- *   p     Gesamtpunkte
- *   ap    Punkteschnitt
- *   sdmvt Marktwertaenderung seit gestern
- *   mvgl  Gewinn/Verlust seit deinem Kauf
- *   st    Status (0 = fit)
- *   pos   Position (1 TW, 2 ABW, 3 MIT, 4 STU)
  */
 
 const FIELDS = {
   id: ["i", "id", "pi"],
-  firstName: ["fn"],
+  firstName: ["fn", "firstName"],
   name: ["n", "ln", "lastName"],
   pos: ["pos"],
   marketValue: ["mv", "marketValue"],
   points: ["p", "totalPoints"],
   average: ["ap", "averagePoints"],
-  dayDelta: ["sdmvt", "tfhmvt"],
+  // v4: tfhmvt = 24h, sdmvt = 7 Tage.
+  dayDelta: ["tfhmvt"],
+  weekDelta: ["sdmvt"],
   totalGain: ["mvgl"],
+  buyPrice: ["prs", "buyPrice"],
   status: ["st", "status"],
   teamId: ["tid", "teamId"],
+  teamName: ["tn", "teamName"],
   trend: ["mvt"],
   image: ["pim", "im", "pimg", "playerImage"],
   teamImage: ["tim", "teamImage", "tlogo"],
@@ -36,7 +30,6 @@ const FIELDS = {
 
 export type FieldKey = keyof typeof FIELDS;
 
-/** Holt den ersten vorhandenen Wert aus den moeglichen Kuerzeln. */
 export function pick<T = unknown>(
   raw: Record<string, unknown> | null | undefined,
   key: FieldKey,
@@ -57,6 +50,13 @@ export const POSITIONS: Record<number, string> = {
   4: "STU",
 };
 
+export const POSITION_LABELS: Record<number, string> = {
+  1: "Torwart",
+  2: "Abwehr",
+  3: "Mittelfeld",
+  4: "Sturm",
+};
+
 export const STATUS: Record<number, string> = {
   0: "Fit",
   1: "Verletzt",
@@ -66,13 +66,32 @@ export const STATUS: Record<number, string> = {
   16: "Nicht im Kader",
 };
 
-/** 10.973.197 -> "10,97 Mio" */
+const CDN = "https://kickbase.b-cdn.net";
+
+export function playerImage(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = String(raw).trim();
+  if (!v) return null;
+  if (v.startsWith("http://") || v.startsWith("https://")) return v;
+  if (v.startsWith("/")) return CDN + v;
+  return `${CDN}/pool/playersbig/${v}`;
+}
+
+export function teamCrest(teamId: number | string | null | undefined): string | null {
+  if (teamId === null || teamId === undefined || teamId === "") return null;
+  return `${CDN}/pool/teamsg/${teamId}.png`;
+}
+
 export function eur(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "–";
   const v = Number(n);
   const sign = v < 0 ? "−" : "";
   const a = Math.abs(v);
-  if (a >= 1_000_000) return `${sign}${(a / 1_000_000).toFixed(2)} Mio`;
+  if (a >= 1_000_000)
+    return `${sign}${(a / 1_000_000).toLocaleString("de-DE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} Mio`;
   if (a >= 1_000) return `${sign}${Math.round(a / 1_000)}k`;
   return `${sign}${Math.round(a)}`;
 }
@@ -87,4 +106,15 @@ export function eur(n: number | null | undefined): string {
 export function pct(part: number, whole: number): number {
   if (!whole) return 0;
   return (part / whole) * 100;
+}
+
+export function shortDate(d: Date | null | undefined): string {
+  if (!d || Number.isNaN(d.getTime())) return "–";
+  return d.toLocaleString("de-DE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

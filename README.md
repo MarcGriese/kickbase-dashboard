@@ -21,6 +21,17 @@ Für einen Produktions-Build lokal:
 npm run build && npm start
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
+Getestet wird die Buchhaltung hinter den hergeleiteten Kontoständen
+(`src/lib/league.ts`) – der einzige Teil der App, den man nicht gegen die API
+prüfen kann, weil fremde Budgets dort gar nicht auftauchen. Läuft über den
+Node-Testrunner ohne zusätzliches Framework und braucht Node 22.6+.
+
 ## Anmeldung
 
 Die App schickt E-Mail und Passwort einmalig an `api.kickbase.com` und legt den
@@ -129,6 +140,19 @@ Kickbase nutzt sehr kurze Feldnamen (`mv`, `ap`, `sdmvt`, …). Alle diese
 Kürzel stehen an genau einer Stelle: `src/lib/fields.ts` im Objekt `FIELDS`.
 Ändert sich die API, passt du nur dort an.
 
+Eine Falle, die lange falsch stand: `sdmvt` ist die Marktwertänderung der
+letzten **sieben Tage** (seven day), `tfhmvt` die der letzten **24 Stunden**
+(twenty four hour). Wer beides in denselben Topf wirft, zeigt eine
+Wochenbewegung als Tageswert an. Die App führt beide Werte getrennt.
+
+Die Zusatzendpunkte für Spielplan (`/v4/competitions/1/matchdays`),
+Bundesliga-Tabelle (`/v4/competitions/1/table`) und die Manager-Daten
+(`/v4/leagues/{id}/managers/{userId}/dashboard` und `.../squad`) sind nicht
+offiziell dokumentiert.
+Antworten sie anders als erwartet, geben die Funktionen in
+`src/lib/kickbase.ts` `null` zurück und die Oberfläche zeigt den Abschnitt
+einfach nicht – eine fehlende Paarung darf nie das Dashboard zerlegen.
+
 Um die echten Feldnamen zu sehen, hilft das Python-Tool aus dem gleichen
 Projekt:
 
@@ -141,6 +165,25 @@ teilweise mit Beispielantworten belegt – dort sind die Zuordnungen in
 `fields.ts` und `advisor.ts` defensiv geraten und einen Abgleich wert. Der
 Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 
+
+## Schnappschuss-Speicher
+
+Die App speichert täglich einen lokalen Zustand von Kader und Transfermarkt in
+`data/kaderzentrale.db` (SQLite). Dadurch können Marktwert-Verläufe über mehrere
+Tage bewertet werden, statt nur die aktuellen API-Deltas zu verwenden. Außerdem
+fließen Punkte pro Million Marktwert als Gegenwert-Kennzahl in die Bewertung ein.
+
+Beim Serverstart initialisiert `src/instrumentation.ts` die Datenbank. Mit
+`KB_EMAIL` und `KB_PASSWORD` kann bei Bedarf automatisch ein Tages-Snapshot
+erstellt werden. Alternativ ruft ein Cronjob `POST /api/snapshot` mit
+`Authorization: Bearer $SNAPSHOT_SECRET` auf.
+
+```cron
+30 3 * * * cd /pfad/zu/kickbase-dashboard && npm run snapshot
+```
+
+Relevante Variablen stehen in `.env.example`: `SNAPSHOT_SECRET`, `KB_LEAGUE_ID`,
+`KB_DB_PATH`, `KB_SNAPSHOT_ON_START` sowie optionale Bild-CDN-Einstellungen.
 ## Spielerfotos und Wappen
 
 Vorher wurde gar kein Bild gerendert: `pick(raw, "image")` wurde ausgelesen
@@ -231,8 +274,8 @@ sich das Logo verzerren ließe.
   Modul um, und `db.ts` importiert ohne `node:`-Präfix – das Schema lehnt
   webpack ab, bevor es zur Alias-Auflösung kommt.
 - Systemschriften statt Google Fonts: kein externer Request, kein Fetch beim
-  Build. Willst du Inter, leg die woff2-Dateien in `/public` und binde sie
-  über `next/font/local` ein.
+  Build. Das ist hier kein Kompromiss, sondern Pflicht: die Hausschriften
+  sind laut Community Policy der Marke vorbehalten.
 - Bewusst auf Next 14 gepinnt: ab Next 15 ist `cookies()` asynchron, was das
   Session-Handling in `src/lib/session.ts` brechen würde. Die Version ist
   14.2.35, also die gepatchte 14er-Linie.

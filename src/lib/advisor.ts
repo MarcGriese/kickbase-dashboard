@@ -27,6 +27,7 @@ export type MarketVerdict = "kaufen" | "beobachten" | "finger-weg";
 export interface RatedPlayer {
   id: string;
   name: string;
+  fullName: string;
   pos: number;
   teamId: string | null;
   photo: string | null;
@@ -34,6 +35,8 @@ export interface RatedPlayer {
   marketValue: number;
   dayDelta: number;
   dayPct: number;
+  weekDelta: number;
+  weekPct: number;
   average: number;
   points: number;
   /** Punkteschnitt pro Million Marktwert. */
@@ -45,9 +48,12 @@ export interface RatedPlayer {
   verdict: Verdict;
   score: number;
   reasons: string[];
+  forecast: Forecast;
+  fixtures: Fixture[];
 }
 
-export interface RatedMarketPlayer extends Omit<RatedPlayer, "verdict" | "totalGain"> {
+export interface RatedMarketPlayer
+  extends Omit<RatedPlayer, "verdict" | "totalGain" | "forecast" | "fixtures"> {
   price: number;
   maxBid: number;
   verdict: MarketVerdict;
@@ -78,18 +84,15 @@ export function leagueOverpay(feed: Record<string, any>): {
 } {
   const items: any[] = feed?.af ?? feed?.it ?? feed?.items ?? [];
   const ratios: number[] = [];
-
   for (const it of items) {
     const blob = it?.data ?? it;
     const price = Number(blob?.trp ?? blob?.prc ?? blob?.price);
     const mv = Number(blob?.mv ?? blob?.marketValue);
     if (mv > 0 && price > 0) {
       const r = price / mv;
-      // Ausreisser raus - Fehlparsings und Kickbase-Zwangsverkaeufe.
       if (r > 0.3 && r < 5) ratios.push(r);
     }
   }
-
   if (ratios.length < 3) return { factor: 1.05, samples: 0 };
   return { factor: median(ratios), samples: ratios.length };
 }
@@ -228,16 +231,13 @@ export function rateOwn(
 ): RatedPlayer {
   const b = base(raw, ctx.trends);
   const totalGain = Number(pick(raw, "totalGain", 0)) || 0;
+  const fixtures = context.fixturesByTeam?.get(b.teamId) ?? [];
+  const fc = forecast(b.marketValue, b.dayDelta, b.weekDelta, context.forecastDays ?? 3);
   const reasons: string[] = [];
   let score = 0;
 
-  if (b.dayPct <= -0.8) {
-    score -= 2;
-    reasons.push(`verliert heute ${b.dayPct.toFixed(1)} %`);
-  } else if (b.dayPct >= 0.8) {
-    score += 2;
-    reasons.push(`gewinnt heute ${b.dayPct.toFixed(1)} %`);
-  }
+  if (b.dayPct <= -0.8) { score -= 2; reasons.push(`verliert heute ${b.dayPct.toFixed(1)} %`); }
+  else if (b.dayPct >= 0.8) { score += 2; reasons.push(`gewinnt heute ${b.dayPct.toFixed(1)} %`); }
 
   score += scoreTrend(b.trend, b.dayPct, reasons);
   score += scorePpm(b.ppm, b.average, ctx.medianPpm, reasons);
@@ -250,20 +250,18 @@ export function rateOwn(
     reasons.push(`nur ${b.average.toFixed(0)} Punkte im Schnitt`);
   }
 
-  if (totalGain > 0 && b.dayPct < 0) {
-    reasons.push("Gewinn steht im Feuer");
-  }
+  if (b.average >= 150) { score += 1; reasons.push(`Schnitt ${b.average.toFixed(0)}`); }
+  else if (b.average <= 60 && b.average > 0) { score -= 1; reasons.push(`nur ${b.average.toFixed(0)} Punkte im Schnitt`); }
 
-  if (b.status !== 0) {
-    score -= 2;
-    reasons.push("nicht einsatzbereit");
-  }
+  if (totalGain > 0 && b.dayPct < 0) reasons.push("Gewinn steht im Feuer");
+  if (b.status !== 0) { score -= 2; reasons.push("nicht einsatzbereit"); }
 
   // Schwelle bei drei: ein einzelnes Signal soll noch keinen Verkauf ausloesen.
   const verdict: Verdict =
     score <= -3 ? "verkaufen" : score >= 3 ? "stark-halten" : "halten";
 
-  return { ...b, totalGain, verdict, score, reasons };
+  const verdict: Verdict = score <= -3 ? "verkaufen" : score >= 3 ? "stark-halten" : "halten";
+  return { ...b, totalGain, verdict, score, reasons, forecast: fc, fixtures };
 }
 
 /* ------------------------------------------------------------ Transfermarkt */
@@ -308,15 +306,15 @@ export function rateMarket(
     reasons.push("deutlich über Marktwert");
   }
 
-  if (b.status !== 0) {
-    score -= 2;
-    reasons.push("nicht einsatzbereit");
-  }
+  if (b.dayPct >= 0.5) { score += 1; reasons.push("Marktwert zieht an"); }
+  else if (b.dayPct <= -1.0) { score -= 1; reasons.push("Marktwert fällt"); }
+  if (b.marketValue && price < b.marketValue * 0.98) { score += 2; reasons.push("unter Marktwert angeboten"); }
+  else if (b.marketValue && price > b.marketValue * 1.1) { score -= 1; reasons.push("deutlich über Marktwert"); }
+  if (b.status !== 0) { score -= 2; reasons.push("nicht einsatzbereit"); }
 
   let maxBid = b.marketValue * overpay;
   if (score >= 4) maxBid *= 1.03; // bei einem echten Ziel etwas mutiger
   if (budget !== null) maxBid = Math.min(maxBid, budget);
-
   const affordable = budget === null || price <= budget;
   const verdict: MarketVerdict =
     score >= 3 && affordable ? "kaufen" : score <= -1 ? "finger-weg" : "beobachten";

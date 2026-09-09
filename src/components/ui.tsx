@@ -147,6 +147,24 @@ export function StatTile({
   /** Wenn gesetzt, wird der Wert als Timestamp gesetzt statt als Text. */
   delta?: number;
 }) {
+  /**
+   * "up" und "down" sind Richtungen, keine Warnungen - sie laufen deshalb
+   * ueber dieselbe Helligkeitsstufe wie die Zahlen in der Tabelle, nicht
+   * ueber den Akzent. Einzige Ausnahme ist ein Konto im Minus, das die
+   * aufrufende Seite ausdruecklich als "alert" kennzeichnet: das ist eine
+   * Regelverletzung und damit ein Fall fuer KB Live Red.
+   */
+  const color =
+    tone === "alert"
+      ? "text-kb-red"
+      : tone === "up"
+        ? "text-kb-white"
+        : tone === "down"
+          ? "text-kb-grey-light"
+          : accent
+            ? "text-kb-white"
+            : "text-kb-white";
+
   return (
     <div className="card p-4">
       <div className="label">{label}</div>
@@ -164,9 +182,9 @@ export function StatTile({
   );
 }
 
-/* ------------------------------------------------------------ Player rows */
+/* --------------------------------------------------------------- Position */
 
-function PositionChip({ pos }: { pos: number }) {
+export function PositionChip({ pos }: { pos: number }) {
   return (
     <span className="w-9 shrink-0 rounded border border-kb-line-strong px-1.5 py-0.5 text-center text-data-xs font-bold uppercase text-kb-grey">
       {POSITIONS[pos] ?? "–"}
@@ -174,8 +192,8 @@ function PositionChip({ pos }: { pos: number }) {
   );
 }
 
-function Reasons({ reasons }: { reasons: string[] }) {
-  if (!reasons.length) return null;
+export function StatusFlag({ status }: { status: number }) {
+  if (status === 0) return null;
   return (
     <p className="mt-1 text-data-xs text-kb-grey">{reasons.join(" · ")}</p>
   );
@@ -280,7 +298,64 @@ export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
         </div>
         <Delta value={p.dayDelta} pct={p.dayPct} />
       </div>
+      <div className="label">P/Mio</div>
+    </div>
+  );
+}
 
+export function TrendCell({ trend }: { trend: PlayerTrend | null }) {
+  const week: Change | null = trend?.d7 ?? trend?.since ?? null;
+  let body;
+  if (!trend) body = <span className="num text-data-sm text-kb-grey">–</span>;
+  else if (!week) body = <span className="text-data-xs text-kb-grey">{trend.isNew ? "neu" : "–"}</span>;
+  else {
+    body = (
+      <Timestamp
+        value={week.delta}
+        suffix={`${Math.abs(week.pct).toFixed(1)} %`}
+        className="text-data-sm font-semibold"
+      />
+    );
+  }
+  return (
+    <div className="hidden w-20 text-right lg:block">
+      <div>{body}</div>
+      <div className="label">{week ? `${week.ageDays} Tage` : "Verlauf"}</div>
+    </div>
+  );
+}
+
+export function SnapshotNotice({ day, ageDays, count }: { day: string | null; ageDays: number | null; count: number }) {
+  if (!day) {
+    return (
+      <p className="mb-6 rounded-card border border-kb-line bg-kb-surface/90 px-4 py-3 text-data-xs leading-relaxed text-kb-grey">
+        Noch kein Schnappschuss gespeichert. Der Verlauf bleibt leer, bis der nächtliche Lauf zum ersten Mal durch ist.
+      </p>
+    );
+  }
+  const stale = ageDays !== null && ageDays > 2;
+  return (
+    <p className={`mb-6 rounded-card px-4 py-3 text-data-xs leading-relaxed ${stale ? "border-l-2 border-kb-red bg-kb-surface/90 text-kb-grey-light" : "border border-kb-line bg-kb-surface/90 text-kb-grey"}`}>
+      Verglichen mit dem Stand vom <span className="num font-semibold text-kb-white">{day}</span>
+      {ageDays !== null && ageDays > 0 && ` (${ageDays} Tage her)`}. {count} {count === 1 ? "Schnappschuss" : "Schnappschüsse"} im Speicher.
+      {stale && " Der nächtliche Lauf scheint zu hängen."}
+    </p>
+  );
+}
+
+export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
+  return (
+    <li className="flex items-center gap-3 border-b border-kb-line/70 px-4 py-3 last:border-0 hover:bg-kb-raised/60">
+      <PlayerAvatar name={p.fullName || p.name} photo={p.photo} logo={p.logo} />
+      <PositionChip pos={p.pos} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2"><span className="truncate font-semibold">{p.fullName || p.name}</span><StatusFlag status={p.status} /></div>
+        <Reasons reasons={p.reasons} />
+      </div>
+      <div className="hidden w-14 text-right sm:block"><div className="num text-data-sm font-semibold">{p.average.toFixed(0)}</div><div className="label">Schnitt</div></div>
+      <PpmCell ppm={p.ppm} median={median} />
+      <TrendCell trend={p.trend} />
+      <div className="w-24 text-right"><div className="num text-data-sm font-semibold">{eur(p.marketValue)}</div><Delta value={p.dayDelta} pct={p.dayPct} /></div>
       <VerdictBadge verdict={p.verdict} />
     </li>
   );
