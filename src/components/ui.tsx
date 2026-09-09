@@ -1,7 +1,10 @@
-import { eur, POSITIONS, STATUS } from "@/lib/fields";
+import { eur, POSITIONS, STATUS, teamCrest } from "@/lib/fields";
+import type { Strength, Fixture } from "@/lib/fixtures";
 import type { RatedPlayer, RatedMarketPlayer } from "@/lib/advisor";
 import type { Change, PlayerTrend } from "@/lib/snapshot";
+import { TeamCrest } from "./Media";
 import { PlayerAvatar } from "./PlayerAvatar";
+import { BrandLogo } from "./BrandLogo";
 
 /**
  * Kickbase Corporate Design.
@@ -19,12 +22,12 @@ import { PlayerAvatar } from "./PlayerAvatar";
  *   ist die Tabelle auch ohne Farbunterscheidung lesbar.
  *
  *   KB Live Red bleibt dem vorbehalten, was HANDLUNG verlangt: Verkaufen,
- *   Kaufen, Ausfall, ein haengender Schnappschuss. Auf einem normalen
- *   Spieltag faerbt das eine Handvoll Elemente - genau die Sparsamkeit,
- *   die die Guidelines fordern.
+ *   Kaufen, Ausfall, ein Konto im Minus, ein schwerer Gegner. Auf einem
+ *   normalen Spieltag faerbt das eine Handvoll Elemente - genau die
+ *   Sparsamkeit, die die Guidelines fordern.
  *
- * KB Dark Grey kommt hier als Textfarbe NICHT vor. Auf KB Black erreicht es
- * nur 2,09:1 und faellt damit durch jede Lesbarkeitspruefung. Die Guidelines
+ * KB Dark Grey kommt als Textfarbe NICHT vor. Auf KB Black erreicht es nur
+ * 2,09:1 und faellt damit durch jede Lesbarkeitspruefung. Die Guidelines
  * geben die Paarung ausdruecklich nur fuer "layering, depth, and background
  * structure" frei - also fuer Rahmen und Flaechen, nicht fuer Schrift.
  */
@@ -46,8 +49,6 @@ const DIRECTION_TEXT: Record<Direction, string> = {
   flat: "text-kb-grey", // 4,7:1
 };
 
-/* -------------------------------------------------------------- Timestamp */
-
 /**
  * Das Timestamp-Motiv der Guidelines: ein Plus/Minus-Zeichen, gepaart mit
  * Text in Versalien. Im Original markiert es Spielereignisse auf dem
@@ -60,23 +61,20 @@ const DIRECTION_TEXT: Record<Direction, string> = {
 export function Timestamp({
   value,
   suffix,
-  emphasis = false,
+  className = "",
 }: {
   value: number;
   /** Bereits formatierter Wert, ohne Vorzeichen. */
   suffix: string;
-  emphasis?: boolean;
+  className?: string;
 }) {
   const dir = direction(value);
   const sign = dir === "gain" ? "+" : dir === "loss" ? "−" : "±";
-
   return (
     <span
-      className={`num inline-flex items-baseline gap-1 uppercase ${DIRECTION_TEXT[dir]} ${
-        emphasis ? "text-headline-sm font-bold" : "text-data-sm font-semibold"
-      }`}
+      className={`num inline-flex items-baseline gap-1 uppercase ${DIRECTION_TEXT[dir]} ${className}`}
     >
-      <span aria-hidden className={emphasis ? "" : "text-[0.9em]"}>
+      <span aria-hidden className="text-[0.9em]">
         {sign}
       </span>
       {suffix}
@@ -84,17 +82,25 @@ export function Timestamp({
   );
 }
 
-/** Marktwert-Delta als Timestamp, mit optionalem Prozentwert dahinter. */
-export function Delta({ value, pct }: { value: number; pct?: number }) {
-  const dir = direction(value);
+/* ------------------------------------------------------------------ Marke */
+
+/**
+ * Hier stand eine selbstgezeichnete Marke - zwei gruene Balken, "der
+ * Kickbase-Winkel". Das echte Zeichen ist ein Stern, und Gruen kommt in der
+ * Marke ueberhaupt nicht vor.
+ *
+ * Jetzt liegt das Original aus dem Community Logo Kit in public/brand und
+ * wird ueber BrandLogo eingebunden. Warum als Datei und nicht als Inline-SVG,
+ * steht dort und in public/brand/README.md: die Policy verbietet Umfaerben,
+ * und was nicht im Markup steht, kann keine CSS-Regel einfaerben.
+ *
+ * Guideline Placement: "The logomark should always be left-aligned."
+ */
+export function Wordmark() {
   return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <Timestamp value={value} suffix={eur(Math.abs(value))} />
-      {pct !== undefined && dir !== "flat" && (
-        <span className={`num text-data-xs ${DIRECTION_TEXT[dir]} opacity-60`}>
-          {Math.abs(pct).toFixed(1)} %
-        </span>
-      )}
+    <span className="flex items-center gap-2.5">
+      <BrandLogo variant="mark" height={18} />
+      <span className="display text-sm">Kaderzentrale</span>
     </span>
   );
 }
@@ -103,15 +109,16 @@ export function Delta({ value, pct }: { value: number; pct?: number }) {
 
 /**
  * Nur was Handlung verlangt, wird rot. "Halten" und "Beobachten" heissen
- * "tu nichts" und treten entsprechend zurueck.
+ * "tu nichts" und treten entsprechend zurueck; "Finger weg" tritt noch
+ * weiter zurueck, statt wie bisher genauso laut zu sein wie "Verkaufen".
  */
 const VERDICT_STYLES: Record<string, string> = {
   verkaufen: "bg-kb-red text-kb-black border-kb-red",
   kaufen: "bg-kb-red text-kb-black border-kb-red",
   "stark-halten": "bg-kb-white text-kb-black border-kb-white",
-  halten: "border-kb-line-strong text-kb-grey",
-  beobachten: "border-kb-line-strong text-kb-grey",
-  "finger-weg": "border-transparent text-kb-grey",
+  halten: "bg-transparent text-kb-grey border-kb-line-strong",
+  beobachten: "bg-transparent text-kb-grey border-kb-line-strong",
+  "finger-weg": "bg-transparent text-kb-grey border-transparent",
 };
 
 const VERDICT_LABELS: Record<string, string> = {
@@ -126,9 +133,39 @@ const VERDICT_LABELS: Record<string, string> = {
 export function VerdictBadge({ verdict }: { verdict: string }) {
   return (
     <span
-      className={`inline-flex w-[5.5rem] shrink-0 justify-center rounded border px-2 py-1 text-data-xs font-bold uppercase tracking-wide ${VERDICT_STYLES[verdict]}`}
+      className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-data-xs font-bold uppercase tracking-wider ${VERDICT_STYLES[verdict]}`}
     >
       {VERDICT_LABELS[verdict]}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ Delta */
+
+export function Delta({
+  value,
+  pct,
+  className = "",
+}: {
+  value: number;
+  pct?: number;
+  className?: string;
+}) {
+  const dir = direction(value);
+  return (
+    <span className={`inline-block ${className}`}>
+      <Timestamp
+        value={value}
+        suffix={eur(Math.abs(value))}
+        className="text-data-sm font-semibold"
+      />
+      {pct !== undefined && dir !== "flat" && (
+        // Eigene Zeile: sonst bricht der Prozentwert in engen Spalten um und
+        // reisst die Zahl auseinander.
+        <span className={`num block text-data-xs opacity-70 ${DIRECTION_TEXT[dir]}`}>
+          {Math.abs(pct).toFixed(1)} %
+        </span>
+      )}
     </span>
   );
 }
@@ -139,13 +176,16 @@ export function StatTile({
   label,
   value,
   hint,
-  delta,
+  accent,
+  tone = "neutral",
+  big,
 }: {
   label: string;
   value: string;
   hint?: string;
-  /** Wenn gesetzt, wird der Wert als Timestamp gesetzt statt als Text. */
-  delta?: number;
+  accent?: boolean;
+  tone?: "neutral" | "up" | "down" | "alert";
+  big?: boolean;
 }) {
   /**
    * "up" und "down" sind Richtungen, keine Warnungen - sie laufen deshalb
@@ -168,16 +208,16 @@ export function StatTile({
   return (
     <div className="card p-4">
       <div className="label">{label}</div>
-      <div className="mt-2">
-        {delta !== undefined ? (
-          <Timestamp value={delta} suffix={value} emphasis />
-        ) : (
-          <span className="num text-headline-sm font-bold tracking-tight text-kb-white">
-            {value}
-          </span>
-        )}
+      <div
+        className={`num mt-1.5 font-extrabold tracking-tight ${
+          big ? "text-2xl sm:text-[1.75rem]" : "text-xl"
+        } ${color}`}
+      >
+        {value}
       </div>
-      {hint && <div className="mt-1.5 text-data-xs text-kb-grey">{hint}</div>}
+      {hint && (
+        <div className="mt-1 text-data-xs leading-relaxed text-kb-grey">{hint}</div>
+      )}
     </div>
   );
 }
@@ -186,7 +226,7 @@ export function StatTile({
 
 export function PositionChip({ pos }: { pos: number }) {
   return (
-    <span className="w-9 shrink-0 rounded border border-kb-line-strong px-1.5 py-0.5 text-center text-data-xs font-bold uppercase text-kb-grey">
+    <span className="w-10 shrink-0 rounded bg-kb-raised px-1.5 py-0.5 text-center text-data-xs font-bold uppercase tracking-wider text-kb-grey-light">
       {POSITIONS[pos] ?? "–"}
     </span>
   );
@@ -195,26 +235,74 @@ export function PositionChip({ pos }: { pos: number }) {
 export function StatusFlag({ status }: { status: number }) {
   if (status === 0) return null;
   return (
-    <p className="mt-1 text-data-xs text-kb-grey">{reasons.join(" · ")}</p>
-  );
-}
-
-/** Ausfall ist ein Moment, der Aufmerksamkeit verlangt - also Live Red. */
-function StatusFlag({ status }: { status: number }) {
-  if (status === 0) return null;
-  return (
-    <span className="shrink-0 text-data-xs font-bold uppercase tracking-wide text-kb-red">
+    /* Ausfall ist ein Moment, der Aufmerksamkeit verlangt - also Live Red. */
+    <span className="shrink-0 rounded border border-kb-red px-1.5 text-data-xs font-bold uppercase tracking-wider text-kb-red">
       {STATUS[status] ?? "Ausfall"}
     </span>
   );
 }
 
-/* ------------------------------------------------- Punkte pro Million */
+/* --------------------------------------------------------------- Spielplan */
 
 /**
- * Der Gegenwert, gemessen am Median der Gruppe. Bewusst ohne Rot: das ist
- * eine Kennzahl, keine Handlungsaufforderung.
+ * Die Gegnerstaerke lief bisher auf einer Ampel: rot, gelb, gruen. Die Marke
+ * hat weder Gruen noch Gelb, also traegt hier - wie bei den Zahlen - die
+ * Helligkeit die Bedeutung:
+ *
+ *   leicht  KB White       hell, kein Grund hinzusehen
+ *   mittel  KB Grey        zurueckgenommen
+ *   hart    KB Live Red    das Spiel, das dir die Woche verderben kann
+ *
+ * Nur die harte Partie bekommt den Akzent, und das ist genau die, die eine
+ * Entscheidung ausloest. Zusaetzlich steht in jedem Chip ohnehin "H" oder
+ * "A" und im title-Attribut der Klartext, die Farbe ist also nicht der
+ * einzige Traeger der Information.
  */
+const STRENGTH_STYLES: Record<Strength, string> = {
+  hart: "border-kb-red text-kb-red",
+  mittel: "border-kb-line-strong text-kb-grey",
+  leicht: "border-kb-line-strong text-kb-white",
+};
+
+const STRENGTH_WORDS: Record<Strength, string> = {
+  hart: "schwerer Gegner",
+  mittel: "ausgeglichen",
+  leicht: "machbar",
+};
+
+/** Die naechsten Partien, rot/gelb/gruen nach Gegnerstaerke. */
+export function FixtureStrip({ fixtures }: { fixtures: Fixture[] }) {
+  if (!fixtures.length) {
+    return <span className="text-data-xs text-kb-grey">kein Spielplan</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {fixtures.map((f) => (
+        <span
+          key={`${f.matchday}-${f.opponentId}`}
+          title={`${f.home ? "Heim" : "Auswärts"} gegen ${f.opponentName} · ${STRENGTH_WORDS[f.strength]} · ${f.matchday}. Spieltag`}
+          className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-data-xs font-semibold ${STRENGTH_STYLES[f.strength]}`}
+        >
+          <span className="opacity-60">{f.home ? "H" : "A"}</span>
+          <TeamCrest
+            src={teamCrest(f.opponentId)}
+            name={f.opponentName}
+            size={14}
+            plain
+          />
+          {/* Eng: Kuerzel, sobald die Tabellenspalte greift; sonst der Name. */}
+          <span className="hidden lg:inline">{f.opponentShort}</span>
+          <span className="max-w-[6rem] truncate lg:hidden">{f.opponentName}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------- Punkte pro Million */
+
 export function PpmCell({ ppm, median }: { ppm: number; median: number }) {
   const rated = median > 0 && ppm > 0;
   const color = !rated
@@ -229,74 +317,6 @@ export function PpmCell({ ppm, median }: { ppm: number; median: number }) {
     <div className="hidden w-16 text-right md:block">
       <div className={`num text-data-sm font-semibold ${color}`}>
         {ppm > 0 ? ppm.toFixed(1) : "–"}
-      </div>
-      <div className="label">P/Mio</div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------- Verlauf */
-
-/**
- * Der Wochenverlauf aus dem Schnappschuss-Speicher. Ohne gespeicherte
- * Staende steht hier bewusst ein Strich und keine Null - die App soll nicht
- * so tun, als wuesste sie etwas, das sie noch nicht weiss.
- */
-export function TrendCell({ trend }: { trend: PlayerTrend | null }) {
-  const week: Change | null = trend?.d7 ?? trend?.since ?? null;
-
-  let body;
-  if (!trend) {
-    body = <span className="num text-data-sm text-kb-grey">–</span>;
-  } else if (!week) {
-    body = (
-      <span className="text-data-xs uppercase text-kb-grey">
-        {trend.isNew ? "neu" : "–"}
-      </span>
-    );
-  } else {
-    body = <Timestamp value={week.delta} suffix={`${Math.abs(week.pct).toFixed(1)} %`} />;
-  }
-
-  return (
-    <div className="hidden w-24 text-right lg:block">
-      <div>{body}</div>
-      <div className="label">{week ? `${week.ageDays} Tage` : "Verlauf"}</div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ Rows */
-
-export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
-  return (
-    <li className="flex items-center gap-3 border-b border-kb-line px-4 py-3 last:border-0 hover:bg-kb-raised">
-      <PlayerAvatar name={p.name} photo={p.photo} logo={p.logo} />
-      <PositionChip pos={p.pos} />
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate font-semibold text-kb-white">{p.name}</span>
-          <StatusFlag status={p.status} />
-        </div>
-        <Reasons reasons={p.reasons} />
-      </div>
-
-      <div className="hidden w-14 text-right sm:block">
-        <div className="num text-data-sm font-semibold text-kb-grey-light">
-          {p.average.toFixed(0)}
-        </div>
-        <div className="label">Schnitt</div>
-      </div>
-
-      <PpmCell ppm={p.ppm} median={median} />
-      <TrendCell trend={p.trend} />
-
-      <div className="w-28 text-right">
-        <div className="num text-data-sm font-semibold text-kb-white">
-          {eur(p.marketValue)}
-        </div>
-        <Delta value={p.dayDelta} pct={p.dayPct} />
       </div>
       <div className="label">P/Mio</div>
     </div>
@@ -361,16 +381,25 @@ export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
   );
 }
 
-export function MarketRow({ p, median }: { p: RatedMarketPlayer; median: number }) {
+/* ------------------------------------------------------------- Marktzeile */
+
+function Reasons({ reasons }: { reasons: string[] }) {
+  if (!reasons.length) return null;
+  return (
+    <p className="mt-1 text-data-xs text-kb-grey">{reasons.join(" · ")}</p>
+  );
+}
+
+export function MarketRow({ p, median = 0 }: { p: RatedMarketPlayer; median?: number }) {
   const bargain = p.marketValue > 0 && p.price < p.marketValue;
   return (
-    <li className="flex items-center gap-3 border-b border-kb-line px-4 py-3 last:border-0 hover:bg-kb-raised">
-      <PlayerAvatar name={p.name} photo={p.photo} logo={p.logo} />
+    <li className="flex items-center gap-3 border-b border-kb-line/70 px-4 py-3 last:border-0 hover:bg-kb-raised/60">
+      <PlayerAvatar name={p.fullName || p.name} photo={p.photo} logo={p.logo} />
       <PositionChip pos={p.pos} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-semibold text-kb-white">{p.name}</span>
+          <span className="truncate font-semibold">{p.name}</span>
           <StatusFlag status={p.status} />
         </div>
         <Reasons reasons={p.reasons} />
@@ -380,7 +409,7 @@ export function MarketRow({ p, median }: { p: RatedMarketPlayer; median: number 
       <TrendCell trend={p.trend} />
 
       <div className="hidden w-24 text-right sm:block">
-        <div className="num text-data-sm text-kb-grey">{eur(p.marketValue)}</div>
+        <div className="num text-data-sm text-kb-grey-light">{eur(p.marketValue)}</div>
         <div className="label">Marktwert</div>
       </div>
 
@@ -405,72 +434,12 @@ export function MarketRow({ p, median }: { p: RatedMarketPlayer; median: number 
   );
 }
 
-/* ------------------------------------------------------------- Hinweise */
-
-/**
- * Der Handlungsstreifen. Das einzige grossflaechig rote Element der Seite,
- * und nur dann sichtbar, wenn es wirklich etwas zu tun gibt.
- */
-export function ActionStrip({
-  title,
-  names,
-}: {
-  title: string;
-  names: string[];
-}) {
-  if (!names.length) return null;
-  return (
-    <div className="mb-6 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
-      <span className="text-data-xs font-bold uppercase tracking-wide text-kb-red">
-        {title}
-      </span>
-      <span className="text-body text-kb-grey-light">{names.join(", ")}</span>
-    </div>
-  );
-}
-
-/** Sagt in einer Zeile, wie alt der gespeicherte Vergleichsstand ist. */
-export function SnapshotNotice({
-  day,
-  ageDays,
-  count,
-}: {
-  day: string | null;
-  ageDays: number | null;
-  count: number;
-}) {
-  if (!day) {
-    return (
-      <p className="mb-6 rounded-card border border-kb-line bg-kb-surface/90 px-4 py-3 text-data-xs leading-relaxed text-kb-grey">
-        Noch kein Schnappschuss gespeichert. Der Verlauf bleibt leer, bis der
-        nächtliche Lauf zum ersten Mal durch ist – ab dann vergleicht die App
-        jeden Aufruf gegen den gespeicherten Stand.
-      </p>
-    );
-  }
-
-  const stale = ageDays !== null && ageDays > 2;
-  return (
-    <p
-      className={`mb-6 rounded-card bg-kb-surface/90 px-4 py-3 text-data-xs leading-relaxed text-kb-grey ${
-        stale ? "border-l-2 border-kb-red" : "border border-kb-line"
-      }`}
-    >
-      Verglichen mit dem Stand vom{" "}
-      <span className="num font-semibold text-kb-white">{day}</span>
-      {ageDays !== null && ageDays > 0 && ` (${ageDays} Tage her)`}. {count}{" "}
-      {count === 1 ? "Schnappschuss" : "Schnappschüsse"} im Speicher.
-      {stale && " Der nächtliche Lauf scheint zu hängen."}
-    </p>
-  );
-}
-
 /* ----------------------------------------------------------- Empty states */
 
 export function Empty({ title, hint }: { title: string; hint: string }) {
   return (
     <div className="px-6 py-12 text-center">
-      <p className="kb-headline text-kb-white">{title}</p>
+      <p className="display text-base">{title}</p>
       <p className="mx-auto mt-2 max-w-sm text-body text-kb-grey">{hint}</p>
     </div>
   );

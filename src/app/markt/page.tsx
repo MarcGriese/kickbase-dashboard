@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { MarketRow, Empty, ActionStrip } from "@/components/ui";
+import { MarketRow, Empty } from "@/components/ui";
 import { getToken, getLeagueId } from "@/lib/session";
 import { getMarket, getBudget, getFeed, KickbaseError } from "@/lib/kickbase";
 import { rateMarket, leagueOverpay, medianPpm } from "@/lib/advisor";
@@ -27,9 +27,6 @@ export default async function MarktPage() {
   }
 
   const { factor, samples } = leagueOverpay(feed);
-
-  // Auch der Markt wird gegen den Speicher gehalten: ein Spieler, der seit
-  // einer Woche faellt, sieht am Tagesschritt allein oft harmlos aus.
   const history = compareWithHistory(
     leagueId,
     marketRaw.map((raw) => ({
@@ -37,12 +34,9 @@ export default async function MarktPage() {
       marketValue: Number(pick(raw, "marketValue", 0)) || 0,
     }))
   );
-
   const reference = medianPpm(marketRaw);
   const players = marketRaw
-    .map((m) =>
-      rateMarket(m, factor, budget, { medianPpm: reference, trends: history.byPlayer })
-    )
+    .map((m) => rateMarket(m, factor, budget, { medianPpm: reference, trends: history.byPlayer }))
     .sort((a, b) => b.score - a.score);
 
   const buys = players.filter((p) => p.verdict === "kaufen");
@@ -50,19 +44,19 @@ export default async function MarktPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-6xl animate-fade-up px-4 py-6">
-        <div className="card mb-6 p-4">
-          <div className="flex flex-wrap items-baseline gap-x-10 gap-y-3">
+      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
+        <div className="mb-6 card p-4">
+          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
             <div>
               <div className="label">Aufschlag in deiner Liga</div>
-              <div className="num mt-1.5 text-headline-sm font-bold text-kb-white">
-                {factor >= 1 ? "+" : "−"}
-                {Math.abs((factor - 1) * 100).toFixed(1)} %
+              <div className="num mt-1 text-2xl font-extrabold text-kb-white">
+                {factor >= 1 ? "+" : ""}
+                {((factor - 1) * 100).toFixed(1)} %
               </div>
             </div>
             <div>
               <div className="label">Grundlage</div>
-              <div className="mt-1.5 text-subhead text-kb-grey-light">
+              <div className="mt-1 text-data-sm text-kb-grey-light">
                 {samples > 0
                   ? `${samples} echte Transfers`
                   : "zu wenige Transfers – Schätzwert +5 %"}
@@ -70,24 +64,33 @@ export default async function MarktPage() {
             </div>
             <div>
               <div className="label">Verfügbar</div>
-              <div className="num mt-1.5 text-subhead text-kb-grey-light">
+              <div className="num mt-1 text-data-sm text-kb-grey-light">
                 {budget !== null ? eur(budget) : "unbekannt"}
               </div>
             </div>
           </div>
 
-          <p className="mt-4 max-w-2xl border-t border-kb-line pt-3 text-data-xs leading-relaxed text-kb-grey">
+          <p className="mt-3 border-t border-kb-line pt-3 text-data-xs leading-relaxed text-kb-grey">
             So viel über Marktwert wurde in deiner Liga zuletzt wirklich gezahlt.
             Das Maximalgebot leitet sich daraus ab. Die verdeckten Gebote deiner
             Mitspieler kennt niemand – auch diese App nicht.
           </p>
         </div>
 
-        <ActionStrip title="Lohnt sich heute" names={buys.map((p) => p.name)} />
+        {buys.length > 0 && (
+          <div className="mb-6 rounded-card border-l-2 border-kb-red bg-kb-surface/90 px-4 py-3">
+            <p className="text-data-sm">
+              <span className="font-bold uppercase tracking-wide text-kb-red">Lohnt sich heute:</span>{" "}
+              <span className="text-kb-grey-light">
+                {buys.map((p) => p.name).join(", ")}
+              </span>
+            </p>
+          </div>
+        )}
 
         <section className="card overflow-hidden">
           <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
-            <h2 className="kb-headline">Transfermarkt</h2>
+            <h2 className="display text-base">Transfermarkt</h2>
             <span className="label">Beste Ziele zuerst</span>
           </div>
 
