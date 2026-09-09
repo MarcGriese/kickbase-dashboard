@@ -1,5 +1,7 @@
 import { eur, eurDelta, POSITIONS, STATUS } from "@/lib/fields";
 import type { RatedPlayer, RatedMarketPlayer } from "@/lib/advisor";
+import type { Change, PlayerTrend } from "@/lib/snapshot";
+import { PlayerAvatar } from "./PlayerAvatar";
 
 /* ------------------------------------------------------------------ Badge */
 
@@ -95,9 +97,116 @@ function Reasons({ reasons }: { reasons: string[] }) {
   );
 }
 
-export function SquadRow({ p }: { p: RatedPlayer }) {
+/* ------------------------------------------------- Punkte pro Million */
+
+/**
+ * Der Gegenwert. Wird gegen den Median der Gruppe eingefaerbt, nicht gegen
+ * eine feste Zahl - was "gut" ist, haengt am Preisniveau der Saison.
+ */
+export function PpmCell({ ppm, median }: { ppm: number; median: number }) {
+  const rated = median > 0 && ppm > 0;
+  const color = !rated
+    ? "text-chalk-faint"
+    : ppm >= median * 1.1
+      ? "text-neon"
+      : ppm <= median * 0.85
+        ? "text-loss"
+        : "text-chalk-muted";
+
+  return (
+    <div className="hidden w-16 text-right md:block">
+      <div className={`num text-data-sm font-semibold ${color}`}>
+        {ppm > 0 ? ppm.toFixed(1) : "–"}
+      </div>
+      <div className="label">P/Mio</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- Verlauf */
+
+/**
+ * Der Wochenverlauf aus dem Schnappschuss-Speicher. Ohne gespeicherte
+ * Staende steht hier bewusst ein Strich und keine Null - die App soll nicht
+ * so tun, als wuesste sie etwas, das sie noch nicht weiss.
+ */
+export function TrendCell({ trend }: { trend: PlayerTrend | null }) {
+  const week: Change | null = trend?.d7 ?? trend?.since ?? null;
+
+  let body;
+  if (!trend) {
+    body = <span className="num text-data-sm text-chalk-faint">–</span>;
+  } else if (!week) {
+    body = (
+      <span className="text-data-xs text-chalk-faint">
+        {trend.isNew ? "neu" : "–"}
+      </span>
+    );
+  } else {
+    const color =
+      week.delta > 0 ? "text-neon" : week.delta < 0 ? "text-loss" : "text-chalk-faint";
+    body = (
+      <span className={`num text-data-sm font-semibold ${color}`}>
+        {week.pct > 0 ? "+" : ""}
+        {week.pct.toFixed(1)} %
+      </span>
+    );
+  }
+
+  return (
+    <div className="hidden w-20 text-right lg:block">
+      <div>{body}</div>
+      <div className="label">
+        {week ? `${week.ageDays} Tage` : "Verlauf"}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------- Zustand des Speichers */
+
+/** Sagt in einer Zeile, wie alt der gespeicherte Vergleichsstand ist. */
+export function SnapshotNotice({
+  day,
+  ageDays,
+  count,
+}: {
+  day: string | null;
+  ageDays: number | null;
+  count: number;
+}) {
+  if (!day) {
+    return (
+      <p className="mb-6 rounded-card border border-pitch-600 bg-pitch-800/60 px-4 py-3 text-data-xs leading-relaxed text-chalk-faint">
+        Noch kein Schnappschuss gespeichert. Der Verlauf bleibt leer, bis der
+        nächtliche Lauf zum ersten Mal durch ist – ab dann vergleicht die App
+        jeden Aufruf gegen den gespeicherten Stand.
+      </p>
+    );
+  }
+
+  const stale = ageDays !== null && ageDays > 2;
+  return (
+    <p
+      className={`mb-6 rounded-card border px-4 py-3 text-data-xs leading-relaxed ${
+        stale
+          ? "border-loss/25 bg-loss/5 text-chalk-muted"
+          : "border-pitch-600 bg-pitch-800/60 text-chalk-faint"
+      }`}
+    >
+      Verglichen mit dem Stand vom{" "}
+      <span className="num font-semibold text-chalk">{day}</span>
+      {ageDays !== null && ageDays > 0 && ` (${ageDays} Tage her)`}. {count}{" "}
+      {count === 1 ? "Schnappschuss" : "Schnappschüsse"} im Speicher.
+      {stale && " Der nächtliche Lauf scheint zu hängen."}
+    </p>
+  );
+}
+
+export function SquadRow({ p, median }: { p: RatedPlayer; median: number }) {
   return (
     <li className="flex items-center gap-3 border-b border-pitch-700/70 px-4 py-3 last:border-0 hover:bg-pitch-800/60">
+      <PlayerAvatar name={p.name} photo={p.photo} logo={p.logo} />
       <PositionChip pos={p.pos} />
 
       <div className="min-w-0 flex-1">
@@ -112,10 +221,13 @@ export function SquadRow({ p }: { p: RatedPlayer }) {
         <Reasons reasons={p.reasons} />
       </div>
 
-      <div className="hidden w-16 text-right sm:block">
+      <div className="hidden w-14 text-right sm:block">
         <div className="num text-data-sm font-semibold">{p.average.toFixed(0)}</div>
         <div className="label">Schnitt</div>
       </div>
+
+      <PpmCell ppm={p.ppm} median={median} />
+      <TrendCell trend={p.trend} />
 
       <div className="w-24 text-right">
         <div className="num text-data-sm font-semibold">{eur(p.marketValue)}</div>
@@ -127,10 +239,11 @@ export function SquadRow({ p }: { p: RatedPlayer }) {
   );
 }
 
-export function MarketRow({ p }: { p: RatedMarketPlayer }) {
+export function MarketRow({ p, median }: { p: RatedMarketPlayer; median: number }) {
   const bargain = p.marketValue > 0 && p.price < p.marketValue;
   return (
     <li className="flex items-center gap-3 border-b border-pitch-700/70 px-4 py-3 last:border-0 hover:bg-pitch-800/60">
+      <PlayerAvatar name={p.name} photo={p.photo} logo={p.logo} />
       <PositionChip pos={p.pos} />
 
       <div className="min-w-0 flex-1">
@@ -144,6 +257,9 @@ export function MarketRow({ p }: { p: RatedMarketPlayer }) {
         </div>
         <Reasons reasons={p.reasons} />
       </div>
+
+      <PpmCell ppm={p.ppm} median={median} />
+      <TrendCell trend={p.trend} />
 
       <div className="hidden w-24 text-right sm:block">
         <div className="num text-data-sm text-chalk-muted">{eur(p.marketValue)}</div>

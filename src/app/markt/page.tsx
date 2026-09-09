@@ -3,8 +3,9 @@ import { Nav } from "@/components/Nav";
 import { MarketRow, Empty } from "@/components/ui";
 import { getToken, getLeagueId } from "@/lib/session";
 import { getMarket, getBudget, getFeed, KickbaseError } from "@/lib/kickbase";
-import { rateMarket, leagueOverpay } from "@/lib/advisor";
-import { eur } from "@/lib/fields";
+import { rateMarket, leagueOverpay, medianPpm } from "@/lib/advisor";
+import { eur, pick } from "@/lib/fields";
+import { compareWithHistory } from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,22 @@ export default async function MarktPage() {
   }
 
   const { factor, samples } = leagueOverpay(feed);
+
+  // Auch der Markt wird gegen den Speicher gehalten: ein Spieler, der seit
+  // einer Woche faellt, sieht am Tagesschritt allein oft harmlos aus.
+  const history = compareWithHistory(
+    leagueId,
+    marketRaw.map((raw) => ({
+      playerId: String(pick(raw, "id", "")),
+      marketValue: Number(pick(raw, "marketValue", 0)) || 0,
+    }))
+  );
+
+  const reference = medianPpm(marketRaw);
   const players = marketRaw
-    .map((m) => rateMarket(m, factor, budget))
+    .map((m) =>
+      rateMarket(m, factor, budget, { medianPpm: reference, trends: history.byPlayer })
+    )
     .sort((a, b) => b.score - a.score);
 
   const buys = players.filter((p) => p.verdict === "kaufen");
@@ -35,7 +50,7 @@ export default async function MarktPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-5xl animate-fade-up px-4 py-6">
+      <main className="mx-auto max-w-6xl animate-fade-up px-4 py-6">
         <div className="mb-6 card p-4">
           <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
             <div>
@@ -88,7 +103,7 @@ export default async function MarktPage() {
           {players.length ? (
             <ul>
               {players.map((p) => (
-                <MarketRow key={p.id} p={p} />
+                <MarketRow key={p.id} p={p} median={reference} />
               ))}
             </ul>
           ) : (

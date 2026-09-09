@@ -35,11 +35,79 @@ Einstellungen → Profil ein eigenes Passwort.
 
 ## Seiten
 
-| Route        | Inhalt                                                          |
-| ------------ | --------------------------------------------------------------- |
-| `/dashboard` | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Tagesdelta    |
-| `/markt`     | Transfermarkt mit Kaufempfehlung und Maximalgebot                |
-| `/liga`      | Tabelle mit Rückstand auf Platz 1                                |
+| Route            | Inhalt                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `/dashboard`     | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Verlauf, P/Mio    |
+| `/markt`         | Transfermarkt mit Kaufempfehlung und Maximalgebot                    |
+| `/liga`          | Tabelle mit Rückstand auf Platz 1                                    |
+| `/api/snapshot`  | GET: Zustand des Speichers. POST: Schnappschuss anlegen              |
+
+## Der Schnappschuss-Speicher
+
+Kickbase liefert immer nur das Jetzt. `sdmvt` ist die Marktwertänderung seit
+gestern – mehr Gedächtnis hat die API nicht. Damit siehst du keinen
+dreitägigen Rutsch, keine Erholung und nicht, welcher Spieler still vor sich
+hin wächst.
+
+Deshalb legt die App eine lokale SQLite-Datei an (`data/kaderzentrale.db`,
+über `KB_DB_PATH` verschiebbar) und schreibt dort **eine Zeile pro Liga und
+Kalendertag**: Kader und Transfermarkt mit Marktwert, Punkten, Schnitt und
+Status, dazu Teamwert und Budget. Läuft der Job zweimal am selben Tag,
+ersetzt der zweite Lauf den ersten.
+
+Bei jedem Seitenaufruf hält die App die eben geholten Werte gegen den
+gespeicherten Stand – gegen gestern, gegen vor einer Woche und gegen vor
+einem Monat. Das kostet drei Abfragen, egal wie groß der Kader ist. Solange
+nichts gespeichert ist, steht in der Verlaufsspalte ein Strich und die App
+sagt das oben auch: sie tut nicht so, als wüsste sie etwas, das sie noch
+nicht weiß.
+
+Der Verlauf fließt in die Bewertung ein. Der Tagesschritt allein ist
+verrauscht; eine Woche in dieselbe Richtung ist ein Signal. Wendepunkte
+("dreht heute nach oben", "knickt heute ein") tauchen als Begründung auf.
+
+### Wann geschrieben wird
+
+**Beim Serverstart** (`src/instrumentation.ts`): öffnet und migriert die
+Datei und meldet im Log, wie alt der gespeicherte Stand ist. Fehlt der
+heutige Schnappschuss und liegen `KB_EMAIL`/`KB_PASSWORD` vor, holt er ihn
+gleich. Ohne diese Zugangsdaten kann er nichts abrufen – beim Start gibt es
+keine Browser-Sitzung und damit keinen Token. Abschaltbar mit
+`KB_SNAPSHOT_ON_START=0`.
+
+**Nächtlich per Cron**: `POST /api/snapshot` mit
+`Authorization: Bearer $SNAPSHOT_SECRET`. Der Job meldet sich selbst mit den
+hinterlegten Zugangsdaten an.
+
+```cron
+# Kurz nach der nächtlichen Marktwert-Aktualisierung von Kickbase.
+30 3 * * *  cd /pfad/zu/kickbase-dashboard && npm run snapshot
+```
+
+`npm run snapshot` spricht den laufenden Server an (`KB_URL` setzen, wenn er
+nicht auf Port 3000 hört). Der Server muss also laufen – auf einem Rechner,
+der nachts an ist, oder als Dienst.
+
+**Von Hand**: angemeldet im Browser genügt ein `POST /api/snapshot` ohne
+Geheimnis. `?force=1` überschreibt einen Stand, der heute schon geschrieben
+wurde.
+
+## Punkte pro Million
+
+Der Punkteschnitt allein führt in die Irre: die eigentliche Währung ist der
+Ertrag je gebundenem Euro. Ein Abwehrspieler mit mäßigem Schnitt zum halben
+Preis schlägt den teuren Stürmer, weil das freie Budget den nächsten Steiger
+kauft.
+
+Bewertet wird immer **gegen den Median der Gruppe**, nie gegen eine feste
+Zahl – was ein guter Gegenwert ist, hängt am Preisniveau der Saison. Im
+Kader ist die Gruppe dein eigener Kader, auf dem Transfermarkt das aktuelle
+Angebot. Dort zählt der Ertrag außerdem auf den **Preis**, nicht auf den
+Marktwert: ein Aufschlag frisst die Rendite, ein Schnäppchen verbessert sie.
+
+Spieler ohne einen einzigen Einsatz ziehen den Median nicht nach unten und
+werden auch nicht dafür abgestraft – sie bekommen den Hinweis "noch keine
+Punkte".
 
 ## Wie das Maximalgebot zustande kommt
 
@@ -73,10 +141,36 @@ teilweise mit Beispielantworten belegt – dort sind die Zuordnungen in
 `fields.ts` und `advisor.ts` defensiv geraten und einen Abgleich wert. Der
 Kader-Endpunkt war vollständig dokumentiert und sitzt sicher.
 
+## Spielerfotos und Wappen
+
+Vorher wurde gar kein Bild gerendert: `pick(raw, "image")` wurde ausgelesen
+und bis in `RatedPlayer.image` durchgereicht, aber keine einzige Komponente
+hat je ein `<img>` erzeugt. `teamId` wurde nicht einmal gelesen.
+
+Jetzt gilt: was die API liefert, gewinnt. Das Foto kommt aus `pim`, das
+Wappen aus `tim`, sofern vorhanden. Nur wenn Kickbase nichts mitschickt,
+wird das Wappen aus der Team-ID gebaut (`KB_TEAM_LOGO_TEMPLATE`). Relative
+Pfade bekommen das CDN davor, vollständige URLs bleiben unangetastet.
+
+Bewusst ein einfaches `<img>` statt `next/image`: Kickbase liefert über
+wechselnde CDN-Hosts aus, und `next/image` verweigert jeden Host, der nicht
+in `next.config.mjs` steht – sichtbar als leere Fläche, ohne Fehlermeldung.
+Lädt ein Bild trotzdem nicht, fängt `PlayerAvatar` das ab und zeigt die
+Initialen auf einer aus dem Namen abgeleiteten Farbe. Die Zeile bleibt
+lesbar, auch wenn das CDN schweigt.
+
 ## Technisches
 
 - Next.js 14 (App Router), React 18, TypeScript, Tailwind
 - Datenabruf in Server Components, kein clientseitiger API-Zugriff
+- better-sqlite3 statt `node:sqlite`: letzteres braucht in Node 22 noch
+  `--experimental-sqlite`, was `next dev` unbrauchbar macht.
+- `instrumentation.ts` wird von Next für beide Laufzeiten übersetzt, läuft
+  aber nur unter Node. webpack folgt dem dynamischen Import trotzdem und
+  zieht SQLite ins Edge-Bundle, wo `fs` fehlt. Deshalb biegt
+  `next.config.mjs` `better-sqlite3`, `fs` und `path` dort auf ein leeres
+  Modul um, und `db.ts` importiert ohne `node:`-Präfix – das Schema lehnt
+  webpack ab, bevor es zur Alias-Auflösung kommt.
 - Systemschriften statt Google Fonts: kein externer Request, kein Fetch beim
   Build. Willst du Inter, leg die woff2-Dateien in `/public` und binde sie
   über `next/font/local` ein.
@@ -96,6 +190,12 @@ Daten, die du in der App ohnehin siehst, und führt keine Transfers aus. Das
 Design ist an Kickbase angelehnt, verwendet aber keine Logos oder Grafiken von
 Kickbase. Nutzung auf eigenes Risiko.
 
-Die Einschätzungen sind eine Heuristik aus Marktwert-Trend, Punkteschnitt und
-Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein fallender Marktwert
-kurz vor einem guten Spielplan kann trotzdem ein Halten sein.
+Die Einschätzungen sind eine Heuristik aus Marktwert-Verlauf, Punkten je
+Million und Einsatzfähigkeit – kein Ersatz für dein eigenes Urteil. Ein
+fallender Marktwert kurz vor einem guten Spielplan kann trotzdem ein Halten
+sein. Die App kennt den Spielplan nicht.
+
+Der Schnappschuss-Speicher liegt unverschlüsselt auf deiner Platte und
+enthält nur Daten, die du in der Kickbase-App ohnehin siehst. Er ist von
+`.gitignore` ausgenommen – lösch die Datei, wenn du bei null anfangen
+willst, das Schema legt sich beim nächsten Start neu an.
