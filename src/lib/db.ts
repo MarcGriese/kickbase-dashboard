@@ -97,6 +97,28 @@ function migrate(db: Db): void {
     `);
     db.pragma("user_version = 1");
   }
+
+  if (current < 2) {
+    // Manager-Staende pro Tag: Grundlage fuer die Formkurve der Mitspieler.
+    // Baut sich erst ab dem naechsten Schnappschuss auf - Kickbase kennt keine
+    // Vergangenheit, das Gedaechtnis faengt beim ersten Lauf an.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS manager_snapshots (
+        snapshot_id     INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+        manager_id      TEXT    NOT NULL,
+        name            TEXT,
+        points          INTEGER,
+        matchday_points INTEGER,
+        team_value      INTEGER,
+        is_me           INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (snapshot_id, manager_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_manager_snapshots_manager
+        ON manager_snapshots (manager_id);
+    `);
+    db.pragma("user_version = 2");
+  }
 }
 
 /** Nur fuer Tests: schliesst das Handle und leert den Cache. */

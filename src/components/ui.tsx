@@ -481,6 +481,72 @@ export function MarketRow({ p, median = 0 }: { p: RatedMarketPlayer; median?: nu
   );
 }
 
+/* --------------------------------------------------------------- Sparkline */
+
+/**
+ * Kleiner Punkteverlauf als Inline-SVG. Bewusst ohne Bibliothek und ohne
+ * Farbe ausser der Markenhelligkeit: eine weisse Linie auf dem Punktraster,
+ * Nullwerte (nicht gespielt) als zurueckgenommene Punkte.
+ */
+export function Sparkline({
+  values,
+  width = 240,
+  height = 48,
+}: {
+  values: number[];
+  width?: number;
+  height?: number;
+}) {
+  if (values.length < 2) return null;
+  const pad = 4;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const span = max - min || 1;
+  const stepX = (width - 2 * pad) / (values.length - 1);
+  const y = (v: number) => height - pad - ((v - min) / span) * (height - 2 * pad);
+  const points = values.map((v, i) => `${pad + i * stepX},${y(v)}`).join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width="100%"
+      height={height}
+      preserveAspectRatio="none"
+      aria-hidden
+      className="max-w-full"
+    >
+      {/* Nulllinie, falls der Bereich sie enthaelt. */}
+      {min < 0 && (
+        <line
+          x1={pad}
+          x2={width - pad}
+          y1={y(0)}
+          y2={y(0)}
+          className="stroke-kb-line"
+          strokeWidth="1"
+        />
+      )}
+      <polyline
+        points={points}
+        fill="none"
+        className="stroke-kb-white"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {values.map((v, i) => (
+        <circle
+          key={i}
+          cx={pad + i * stepX}
+          cy={y(v)}
+          r="2"
+          className={v > 0 ? "fill-kb-white" : "fill-kb-grey"}
+        />
+      ))}
+    </svg>
+  );
+}
+
 /* ----------------------------------------------------------- Empty states */
 
 export function Empty({ title, hint }: { title: string; hint: string }) {

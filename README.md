@@ -49,9 +49,11 @@ Einstellungen → Profil ein eigenes Passwort.
 | Route            | Inhalt                                                              |
 | ---------------- | ------------------------------------------------------------------- |
 | `/dashboard`     | Kader mit Halten/Verkaufen-Einschätzung, Teamwert, Verlauf, P/Mio    |
-| `/aufstellung`   | Empfohlene Startelf, aktuelle Aufstellung und Wechsel vom Markt      |
+| `/aufstellung`   | Empfohlene Startelf, aktuelle Aufstellung, erwartete Punkte, Wechsel |
+| `/bundesliga`    | Echte BL-Tabelle, Spieltag mit Ergebnissen, deine Spieler im Einsatz |
+| `/spieler/[id]`  | Punkte eines Spielers Spiel für Spiel, mit Verlauf                   |
 | `/markt`         | Transfermarkt mit Kaufempfehlung und Maximalgebot                    |
-| `/liga`          | Tabelle mit Rückstand auf Platz 1                                    |
+| `/liga`          | Manager-Tabelle mit Rückstand auf Platz 1 und Formkurve             |
 | `/api/snapshot`  | GET: Zustand des Speichers. POST: Schnappschuss anlegen              |
 
 ## Der Schnappschuss-Speicher
@@ -159,6 +161,51 @@ inoffizielle API nicht bestätigt hergibt:
   sonst nichts – lieber keine Angabe als eine geratene. Sobald das echte Feld
   bekannt ist (`python3 kickbase_advisor.py --debug 2> raw.txt`), ist das die
   einzige Stelle, die angepasst werden muss.
+
+## Echte Bundesliga: Tabelle, Spieltag, Live
+
+Die Seite `/bundesliga` legt die echte Liga neben deinen Kader. Grundlage sind
+dieselben zwei Zusatzendpunkte, aus denen schon die Gegnerstärke kommt
+(`/v4/competitions/1/table` und `/v4/competitions/1/matchdays`) – hier voll
+ausgelesen in `src/lib/bundesliga.ts`.
+
+- **BL-Tabelle** mit Platz, Spielen, Tordifferenz, Punkten und Formkurve der
+  letzten fünf Spiele.
+- **Spieltag mit Ergebnissen**: der aktuell laufende Spieltag (sonst der nächste
+  bzw. letzte), inklusive Live-Kennzeichnung.
+- **Deine Spieler im Einsatz**: welche deiner Kaderspieler an diesem Spieltag
+  spielen, gegen wen, und – sobald die API sie liefert – ihre Live-Punkte.
+
+`bundesliga.ts` ist bewusst importfrei (wie `league.ts`), damit der
+Node-Testrunner es direkt lädt; die Feldnamen der inoffiziellen API werden über
+Kandidatenlisten defensiv geraten, Vereinsnamen löst die Oberfläche aus der
+Team-ID auf. Ergebnisse, Live-Status und Live-Punkte erscheinen nur, soweit die
+API sie hergibt – fehlt ein Feld, steht dort ein Strich.
+
+## Punkte je Spiel
+
+Ein Klick auf einen Spielernamen im Kader öffnet `/spieler/[id]`: der
+„Punkte"-Tab aus der Kickbase-App, also die Wertung Spiel für Spiel, dazu
+Schnitt, bestes Spiel und ein kleiner Verlauf. Gespeist aus
+`getPlayerPerformance` (`src/lib/kickbase.ts`), das mehrere nicht dokumentierte
+Endpunkte durchprobiert und `null` zurückgibt, wenn keiner antwortet – dann sagt
+die Seite das offen.
+
+## Erwartete Spieltagspunkte
+
+Jeder Kaderspieler bekommt auf `/aufstellung` einen erwarteten Punktwert für den
+nächsten Spieltag: sein Punkteschnitt, gedämpft nach Fitness, justiert nach
+Gegnerstärke (derselbe `startScore` aus `src/lib/lineup.ts`, der die Elf wählt).
+Die Summe der Elf steht als „erwartete Punkte" über der Aufstellung. Das ist
+eine nachvollziehbare Fortschreibung, keine Kickbase-Prognose.
+
+## Formkurve der Liga
+
+Der Schnappschuss-Speicher schreibt seit Schema v2 zusätzlich die Manager-Stände
+mit (Punkte, Spieltagspunkte, Teamwert). Daraus zeigt `/liga` unter der Tabelle,
+wer in der Liga gerade die meisten Punkte holt – seit gestern und seit rund einer
+Woche. Wie der ganze Verlauf baut sich das erst ab dem ersten gespeicherten
+Schnappschuss auf; solange nichts da ist, sagt die Seite das.
 
 ## Wie das Maximalgebot zustande kommt
 

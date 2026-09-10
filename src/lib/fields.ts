@@ -29,6 +29,9 @@ const FIELDS = {
   // Startelf-Prognose (blauer Stern / gruener Haken in der Kickbase-App).
   // Die Kuerzel sind NICHT bestaetigt - siehe prognosisFrom() weiter unten.
   prognosis: ["prg", "prob", "lineupProbability", "startProbability"],
+  // Live-Punkte am laufenden Spieltag. Kuerzel NICHT bestaetigt; die
+  // Oberflaeche zeigt sie nur, wenn wirklich ein Wert kommt und ein Spiel laeuft.
+  livePoints: ["lp", "livePoints", "lpt"],
 } as const;
 
 export type FieldKey = keyof typeof FIELDS;

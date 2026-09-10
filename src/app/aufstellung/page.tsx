@@ -86,7 +86,7 @@ export default async function AufstellungPage() {
   const swaps = suggestReplacements(reference, market, schedule.byTeam, { budget });
 
   const expectedLabel = recommended
-    ? `rund ${Math.round(recommended.expectedPoints)} Ø-Punkte`
+    ? `rund ${Math.round(recommended.expectedPoints)} erwartete Punkte`
     : "";
 
   const horizonLabel = schedule.nextMatchday

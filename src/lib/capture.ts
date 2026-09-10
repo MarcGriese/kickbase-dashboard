@@ -7,12 +7,14 @@
  */
 
 import "server-only";
-import { getSquad, getMarket, getBudget, getLeagues, login } from "./kickbase";
+import { getSquad, getMarket, getBudget, getRanking, getLeagues, login } from "./kickbase";
+import { parseRanking } from "./league";
 import {
   berlinDay,
   hasSnapshotForDay,
   toSnapshotPlayer,
   writeSnapshot,
+  type ManagerStanding,
   type SnapshotPlayer,
   type SnapshotSource,
 } from "./snapshot";
@@ -55,11 +57,24 @@ export async function captureSnapshot(
 
   // Der Markt darf fehlschlagen, ohne den Kader mitzureissen - er ist nachts
   // regelmaessig leer, und der Kader ist der Teil, auf den es ankommt.
-  const [squadRaw, marketRaw, budget] = await Promise.all([
+  // Die Rangliste ist optional: fehlt sie, bleibt nur die Formkurve leer.
+  const [squadRaw, marketRaw, budget, rankingRaw] = await Promise.all([
     getSquad(token, leagueId),
     getMarket(token, leagueId).catch(() => [] as Record<string, any>[]),
     getBudget(token, leagueId),
+    getRanking(token, leagueId).catch(() => ({}) as Record<string, any>),
   ]);
+
+  const managers: ManagerStanding[] = parseRanking(rankingRaw)
+    .filter((m) => m.id)
+    .map((m) => ({
+      managerId: m.id,
+      name: m.name,
+      points: m.points,
+      matchdayPoints: m.matchdayPoints,
+      teamValue: m.teamValue,
+      isMe: m.isMe,
+    }));
 
   const byId = new Map<string, SnapshotPlayer>();
   // Markt zuerst, Kader danach: eigene Spieler gewinnen bei Doppeltreffern.
@@ -83,6 +98,7 @@ export async function captureSnapshot(
     source,
     players,
     team: { teamValue, budget, squadSize: owned.length },
+    managers,
   });
 
   return {

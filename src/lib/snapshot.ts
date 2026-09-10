@@ -57,6 +57,15 @@ export interface SnapshotTeam {
   squadSize: number | null;
 }
 
+export interface ManagerStanding {
+  managerId: string;
+  name: string;
+  points: number;
+  matchdayPoints: number | null;
+  teamValue: number | null;
+  isMe: boolean;
+}
+
 export type SnapshotSource = "cron" | "startup" | "manual";
 
 /** Rohdaten aus /squad oder /market in eine Schnappschuss-Zeile uebersetzen. */
@@ -90,6 +99,7 @@ export function writeSnapshot(args: {
   source: SnapshotSource;
   players: SnapshotPlayer[];
   team?: SnapshotTeam;
+  managers?: ManagerStanding[];
   when?: Date;
 }): { snapshotId: number; day: string; players: number } {
   const db = getDb();
@@ -142,6 +152,25 @@ export function writeSnapshot(args: {
         args.team.budget,
         args.team.squadSize
       );
+    }
+
+    if (args.managers && args.managers.length) {
+      const insertManager = db.prepare(
+        `INSERT OR REPLACE INTO manager_snapshots
+           (snapshot_id, manager_id, name, points, matchday_points, team_value, is_me)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const m of args.managers) {
+        insertManager.run(
+          snapshotId,
+          m.managerId,
+          m.name,
+          m.points,
+          m.matchdayPoints,
+          m.teamValue,
+          m.isMe ? 1 : 0
+        );
+      }
     }
 
     return snapshotId;
@@ -321,6 +350,70 @@ export function compareWithHistory(
   }
 
   return { byPlayer, reference, newest, empty: false };
+}
+
+/* ------------------------------------------------------- Manager-Formkurve */
+
+/** Gesamtpunkte je Manager in einem Schnappschuss. */
+function managerPointsOf(snapshotId: number): Map<string, number> {
+  const rows = getDb()
+    .prepare(
+      `SELECT manager_id AS managerId, points
+         FROM manager_snapshots
+        WHERE snapshot_id = ?`
+    )
+    .all(snapshotId) as { managerId: string; points: number }[];
+  return new Map(rows.map((r) => [r.managerId, r.points]));
+}
+
+export interface ManagerForm {
+  /** Punkte seit dem Stand vor rund einer Woche. */
+  d7: number | null;
+  /** Punkte seit dem letzten Stand vor heute. */
+  d1: number | null;
+}
+
+export interface ManagerFormReport {
+  byManager: Map<string, ManagerForm>;
+  reference: SnapshotMeta | null;
+  ref7: SnapshotMeta | null;
+  empty: boolean;
+}
+
+/**
+ * Wie viele Punkte jeder Manager seit gestern und seit rund einer Woche
+ * geholt hat - der Zuwachs gegen die gespeicherten Staende. Solange nichts
+ * gespeichert ist, bleibt alles null und die Oberflaeche sagt das.
+ */
+export function compareManagers(
+  leagueId: string,
+  current: { managerId: string; points: number }[],
+  when: Date = new Date()
+): ManagerFormReport {
+  const today = berlinDay(when);
+  const reference = snapshotOnOrBefore(leagueId, dayMinus(today, 1));
+  const ref7 = snapshotOnOrBefore(leagueId, dayMinus(today, 7));
+
+  const byManager = new Map<string, ManagerForm>();
+  if (!reference && !ref7) {
+    for (const c of current) byManager.set(c.managerId, { d7: null, d1: null });
+    return { byManager, reference: null, ref7: null, empty: true };
+  }
+
+  const v1 = reference ? managerPointsOf(reference.id) : null;
+  const v7 =
+    ref7 && reference && ref7.id === reference.id ? v1 : ref7 ? managerPointsOf(ref7.id) : null;
+
+  for (const c of current) {
+    const from1 = v1?.get(c.managerId);
+    const from7 = v7?.get(c.managerId);
+    byManager.set(c.managerId, {
+      d1: from1 !== undefined ? c.points - from1 : null,
+      d7: from7 !== undefined ? c.points - from7 : null,
+    });
+  }
+
+  return { byManager, reference, ref7, empty: false };
 }
 
 /** Dasselbe fuer den Teamwert als Ganzes. */

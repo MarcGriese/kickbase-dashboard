@@ -2,6 +2,7 @@
 import { pick, pct, prognosisFrom, type StartProbability } from "./fields";
 import { forecast, type Forecast } from "./forecast";
 import type { Fixture } from "./fixtures";
+import { startScore } from "./lineup";
 import { playerImage, teamLogo } from "./images";
 import type { PlayerTrend } from "./snapshot";
 
@@ -26,8 +27,12 @@ export interface RatedPlayer {
   points: number;
   ppm: number;
   totalGain: number;
+  /** Erwartete Punkte am naechsten Spieltag (startScore aus lineup.ts). */
+  expectedPoints: number;
   status: number;
   prognosis: StartProbability;
+  /** Live-Punkte am laufenden Spieltag, falls die API sie liefert. */
+  livePoints: number | null;
   image: string | null;
   trend: PlayerTrend | null;
   verdict: Verdict;
@@ -38,7 +43,10 @@ export interface RatedPlayer {
 }
 
 export interface RatedMarketPlayer
-  extends Omit<RatedPlayer, "verdict" | "totalGain" | "forecast" | "fixtures"> {
+  extends Omit<
+    RatedPlayer,
+    "verdict" | "totalGain" | "forecast" | "fixtures" | "expectedPoints"
+  > {
   price: number;
   maxBid: number;
   verdict: MarketVerdict;
@@ -133,6 +141,10 @@ function base(raw: Record<string, any>, trends?: Map<string, PlayerTrend>) {
     ppm: pointsPerMillion(average, marketValue),
     status: Number(pick(raw, "status", 0)) || 0,
     prognosis: prognosisFrom(raw),
+    livePoints: (() => {
+      const v = pick<number | null>(raw, "livePoints", null);
+      return v === null || v === undefined ? null : Number(v);
+    })(),
     image: photo,
     trend: trends?.get(id) ?? null,
   };
@@ -185,7 +197,11 @@ export function rateOwn(raw: Record<string, any>, context: RatingContext = {}): 
   if (fx.reason) reasons.push(fx.reason);
 
   const verdict: Verdict = score <= -3 ? "verkaufen" : score >= 3 ? "stark-halten" : "halten";
-  return { ...b, totalGain, verdict, score, reasons, forecast: fc, fixtures };
+  const expectedPoints = startScore(
+    { id: b.id, pos: b.pos, teamId: b.teamId, average: b.average, status: b.status },
+    context.fixturesByTeam ?? new Map()
+  );
+  return { ...b, totalGain, expectedPoints, verdict, score, reasons, forecast: fc, fixtures };
 }
 
 export function rateMarket(

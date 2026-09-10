@@ -7,6 +7,7 @@ import { Wordmark } from "./ui";
 const LINKS = [
   { href: "/dashboard", label: "Kader" },
   { href: "/aufstellung", label: "Aufstellung" },
+  { href: "/bundesliga", label: "Bundesliga" },
   { href: "/markt", label: "Transfermarkt" },
   { href: "/liga", label: "Tabelle" },
 ];
