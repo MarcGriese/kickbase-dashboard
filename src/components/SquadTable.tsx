@@ -16,6 +16,7 @@ import {
   FixtureStrip,
   PositionChip,
   StatusFlag,
+  PrognosisFlag,
   VerdictBadge,
   Empty,
 } from "./ui";
@@ -238,6 +239,7 @@ export function SquadTable({
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-semibold">{p.fullName}</span>
                     <StatusFlag status={p.status} />
+                    <PrognosisFlag prognosis={p.prognosis} />
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-data-xs text-kb-grey">
                     <TeamCrest

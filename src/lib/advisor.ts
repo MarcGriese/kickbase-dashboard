@@ -1,5 +1,5 @@
 /** Bewertungslogik: Design-/Spielplan-Logik plus Snapshot-Verlauf und P/Mio. */
-import { pick, pct } from "./fields";
+import { pick, pct, prognosisFrom, type StartProbability } from "./fields";
 import { forecast, type Forecast } from "./forecast";
 import type { Fixture } from "./fixtures";
 import { playerImage, teamLogo } from "./images";
@@ -27,6 +27,7 @@ export interface RatedPlayer {
   ppm: number;
   totalGain: number;
   status: number;
+  prognosis: StartProbability;
   image: string | null;
   trend: PlayerTrend | null;
   verdict: Verdict;
@@ -131,6 +132,7 @@ function base(raw: Record<string, any>, trends?: Map<string, PlayerTrend>) {
     points: Number(pick(raw, "points", 0)) || 0,
     ppm: pointsPerMillion(average, marketValue),
     status: Number(pick(raw, "status", 0)) || 0,
+    prognosis: prognosisFrom(raw),
     image: photo,
     trend: trends?.get(id) ?? null,
   };
