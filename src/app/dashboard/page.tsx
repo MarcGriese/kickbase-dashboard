@@ -175,7 +175,7 @@ export default async function DashboardPage() {
         )}
 
         {/* --------------------------------------------------------- Kader */}
-        <SquadTable players={players} horizon={horizonLabel} />
+        <SquadTable players={players} horizon={horizonLabel} leagueId={leagueId} />
 
         <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
           <p>

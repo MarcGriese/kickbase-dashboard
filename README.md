@@ -138,14 +138,24 @@ Kickbase-Prognose – die Logik steht offen in `src/lib/lineup.ts` und ist als
 einziger nicht gegen die API prüfbarer Teil in `src/lib/lineup.test.ts`
 getestet.
 
+**Selbst eingreifen.** Die Elf ist nicht in Stein gemeißelt: pro Spieler gibt
+es **Fest** (steht wenn möglich immer in der Elf), **Bank** (heraus für diese
+Sitzung) und **Verkauf** (fällt aus der Empfehlung, und der Spieler ist auch im
+Kader rot markiert). „Fest" und „Verkauf" merkt sich der Browser pro Liga
+(localStorage, `src/lib/marks.ts`) und gelten auch auf der Kader-Seite; das
+Bank-Setzen gilt nur für die aktuelle Sitzung. Die Elf und die Wechsel rechnen
+sich bei jeder Markierung neu.
+
 **Wechsel vom Markt.** Jeder Marktspieler wird positionsgleich gegen deine
 Stammspieler gehalten. Vorgeschlagen wird nur, wer einen Stammspieler auf
-seiner Position um mindestens 10 % im Startwert schlägt **und** bezahlbar
-bleibt: „Netto nach Verkauf" ist das Maximalgebot (inklusive des ligaüblichen
-Aufschlags aus dem Markt, siehe unten) abzüglich des Marktwerts, den der
-weichende Spieler wieder einbringt. Ein Plus heißt, der Tausch spült Geld in
-die Kasse. Jeder Stammspieler wird höchstens einmal ersetzt, jeder Zugang
-höchstens einmal geholt.
+seiner Position um mindestens 10 % im Startwert schlägt **und** wirklich
+bezahlbar ist: der **Kaufpreis** darf dein freies Budget plus den Verkaufserlös
+des weichenden Spielers nicht übersteigen. Ist das Budget unbekannt, wird es
+vorsichtig als 0 angenommen – dann taucht nur auf, was sich allein aus dem
+Verkauf finanziert. „Netto nach Verkauf" ist der Preis abzüglich dieses
+Erlöses; ein Plus heißt, der Tausch spült Geld in die Kasse. Fest markierte
+Spieler werden nicht zum Ersetzen vorgeschlagen; jeder Stammspieler wird
+höchstens einmal ersetzt, jeder Zugang höchstens einmal geholt.
 
 **Ehrliche Einschränkungen.** Zwei Dinge hängen an Feldern, die die
 inoffizielle API nicht bestätigt hergibt:
@@ -169,8 +179,9 @@ dieselben zwei Zusatzendpunkte, aus denen schon die Gegnerstärke kommt
 (`/v4/competitions/1/table` und `/v4/competitions/1/matchdays`) – hier voll
 ausgelesen in `src/lib/bundesliga.ts`.
 
-- **BL-Tabelle** mit Platz, Spielen, Tordifferenz, Punkten und Formkurve der
-  letzten fünf Spiele.
+- **BL-Tabelle** mit Platz, Spielen, Toren, Tordifferenz, Punkten und Formkurve
+  der letzten fünf Spiele – nach jeder Spalte sortierbar (Platz, Spiele, Tore,
+  Differenz, Punkte).
 - **Spieltag mit Ergebnissen**: der aktuell laufende Spieltag (sonst der nächste
   bzw. letzte), inklusive Live-Kennzeichnung.
 - **Deine Spieler im Einsatz**: welche deiner Kaderspieler an diesem Spieltag
@@ -181,6 +192,13 @@ Node-Testrunner es direkt lädt; die Feldnamen der inoffiziellen API werden übe
 Kandidatenlisten defensiv geraten, Vereinsnamen löst die Oberfläche aus der
 Team-ID auf. Ergebnisse, Live-Status und Live-Punkte erscheinen nur, soweit die
 API sie hergibt – fehlt ein Feld, steht dort ein Strich.
+
+**Vereinswappen.** Wenn die Tabellen-Antwort ein Wappen mitschickt, wird es
+genommen; sonst wird die URL aus der Team-ID gebaut. Der Client-Pfad
+(`teamCrest` in `src/lib/fields.ts`) liegt jetzt einheitlich auf `pool/teamsl/`
+wie `images.teamLogo` – der früher abweichende `teamsg`-Pfad lud oft nichts.
+Eine ungültige Team-ID (0/NaN aus fehlgeschlagenem Parsen) liefert bewusst kein
+Bild, damit statt einer sicheren 404 der saubere Initialen-Platzhalter steht.
 
 ## Punkte je Spiel
 

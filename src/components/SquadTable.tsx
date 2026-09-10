@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { RatedPlayer } from "@/lib/advisor";
+import { useMarks } from "@/lib/marks";
 import {
   eur,
   playerImage,
@@ -90,15 +91,19 @@ const GRID =
 export function SquadTable({
   players,
   horizon,
+  leagueId,
 }: {
   players: RatedPlayer[];
   /** Beschriftung des Prognose-Horizonts, z. B. "Sa. 15.03." */
   horizon: string;
+  /** Fuer die persoenlichen Markierungen (fest/verkaufen), pro Liga getrennt. */
+  leagueId: string;
 }) {
   const [query, setQuery] = useState("");
   const [pos, setPos] = useState(0); // 0 = alle
   const [sort, setSort] = useState<SortKey>("marketValue");
   const [desc, setDesc] = useState(true);
+  const { marks, toggle } = useMarks(leagueId);
 
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("de-DE");
@@ -226,10 +231,15 @@ export function SquadTable({
       {/* ------------------------------------------------------------ Liste */}
       {visible.length ? (
         <ul>
-          {visible.map((p) => (
+          {visible.map((p) => {
+            const isSell = marks.sell.includes(p.id);
+            const isLocked = marks.locked.includes(p.id);
+            return (
             <li
               key={p.id}
-              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-kb-line/70 px-4 py-3 last:border-0 hover:bg-kb-raised/50 sm:grid-cols-3 ${GRID}`}
+              className={`grid grid-cols-2 gap-x-3 gap-y-2 border-b border-kb-line/70 px-4 py-3 last:border-0 hover:bg-kb-raised/50 sm:grid-cols-3 ${GRID} ${
+                isSell ? "border-l-2 border-l-kb-red" : isLocked ? "border-l-2 border-l-kb-white" : ""
+              }`}
             >
               {/* Spieler ---------------------------------------------- */}
               {/* Ab lg loesen sich Foto und Name in eigene Rasterspalten auf. */}
@@ -250,7 +260,7 @@ export function SquadTable({
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-data-xs text-kb-grey">
                     <TeamCrest
-                      src={teamCrest(p.teamId)}
+                      src={p.logo ?? teamCrest(p.teamId)}
                       name={p.teamName || teamName(p.teamId)}
                       size={14}
                     />
@@ -259,6 +269,33 @@ export function SquadTable({
                     </span>
                     <span className="opacity-50">·</span>
                     <span>{POSITIONS[p.pos] ?? "–"}</span>
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggle("locked", p.id)}
+                      aria-pressed={isLocked}
+                      className={`rounded border px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider transition-colors ${
+                        isLocked
+                          ? "border-kb-white bg-kb-white text-kb-black"
+                          : "border-kb-line-strong text-kb-grey-light hover:border-kb-white hover:text-kb-white"
+                      }`}
+                    >
+                      Fest
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggle("sell", p.id)}
+                      aria-pressed={isSell}
+                      className={`rounded border px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider transition-colors ${
+                        isSell
+                          ? "border-kb-red bg-kb-red text-kb-black"
+                          : "border-kb-line-strong text-kb-grey-light hover:border-kb-white hover:text-kb-white"
+                      }`}
+                    >
+                      Verkauf
+                    </button>
                   </div>
                 </div>
 
@@ -319,7 +356,8 @@ export function SquadTable({
                 );
               })()}
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <Empty

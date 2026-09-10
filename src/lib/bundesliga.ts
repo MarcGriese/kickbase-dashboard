@@ -31,6 +31,18 @@ function field(obj: Record<string, any> | null | undefined, keys: string[]): unk
   return undefined;
 }
 
+const DEFAULT_CDN = "https://kickbase.b-cdn.net";
+
+/** Ein Bild-Feld der API zu einer absoluten URL machen, sonst null. */
+function imageUrl(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("//")) return `https:${s}`;
+  return `${DEFAULT_CDN}/${s.replace(/^\/+/, "")}`;
+}
+
 /* --------------------------------------------------------------- Tabelle */
 
 export interface BLTeam {
@@ -38,6 +50,8 @@ export interface BLTeam {
   place: number;
   /** Name, den die API mitschickt - kann leer sein, dann loest die UI ihn aus der ID. */
   name: string;
+  /** Vereinswappen laut API, falls mitgeliefert - sonst baut die UI es aus der ID. */
+  crest: string | null;
   played: number | null;
   wins: number | null;
   draws: number | null;
@@ -80,6 +94,7 @@ export function parseBundesligaTable(raw: Record<string, any> | null): BLTeam[] 
       teamId,
       place: Number(field(t, ["cpl", "pl", "place", "rank", "r"])) || i + 1,
       name,
+      crest: imageUrl(field(t, ["tim", "tl", "logo", "timg", "tlogo", "image"])),
       played: num(field(t, ["sp", "mp", "gp", "games", "m"])),
       wins: num(field(t, ["w", "win", "won"])),
       draws: num(field(t, ["d", "dr", "draw", "drawn"])),

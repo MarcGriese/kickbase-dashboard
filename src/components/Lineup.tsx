@@ -1,86 +1,8 @@
 import type { RatedPlayer, RatedMarketPlayer } from "@/lib/advisor";
-import type { Lineup, Replacement } from "@/lib/lineup";
-import { eur, playerImage, POSITION_LABELS } from "@/lib/fields";
+import type { Replacement } from "@/lib/lineup";
+import { eur, playerImage } from "@/lib/fields";
 import { PlayerPhoto } from "./Media";
-import { FixtureStrip, PrognosisFlag, StatusFlag } from "./ui";
-
-/* --------------------------------------------------------------- Spielerkachel */
-
-function Tile({ p, muted = false }: { p: RatedPlayer; muted?: boolean }) {
-  return (
-    <div
-      className={`flex w-[7.5rem] flex-col items-center gap-1 rounded-card border border-kb-line bg-kb-surface/80 px-2 py-2 text-center ${
-        muted ? "opacity-70" : ""
-      }`}
-    >
-      <PlayerPhoto src={playerImage(p.image)} name={p.fullName} size={36} />
-      <div className="w-full truncate text-data-sm font-semibold">{p.name}</div>
-      <div className="num text-data-xs text-kb-grey-light">
-        Ø {p.average.toFixed(0)} · erw.{" "}
-        <span className="font-semibold text-kb-white">{p.expectedPoints.toFixed(0)}</span>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        <StatusFlag status={p.status} />
-        <PrognosisFlag prognosis={p.prognosis} />
-      </div>
-      <FixtureStrip fixtures={p.fixtures.slice(0, 1)} />
-    </div>
-  );
-}
-
-function Row({ label, players }: { label: string; players: RatedPlayer[] }) {
-  if (!players.length) return null;
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="label">{label}</span>
-      <div className="flex flex-wrap items-start justify-center gap-2">
-        {players.map((p) => (
-          <Tile key={p.id} p={p} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ Startelf */
-
-export function LineupBoard({
-  lineup,
-  expectedLabel,
-}: {
-  lineup: Lineup<RatedPlayer>;
-  expectedLabel: string;
-}) {
-  return (
-    <section className="card overflow-hidden">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-kb-line px-4 py-3">
-        <h2 className="display text-base">Empfohlene Startelf</h2>
-        <span className="label">
-          {lineup.formation.name} · {expectedLabel}
-        </span>
-      </div>
-
-      {/* Sturm oben, Torwart unten - wie auf dem Platz. */}
-      <div className="flex flex-col gap-4 px-4 py-5">
-        <Row label={POSITION_LABELS[4]} players={lineup.att} />
-        <Row label={POSITION_LABELS[3]} players={lineup.mid} />
-        <Row label={POSITION_LABELS[2]} players={lineup.def} />
-        <Row label={POSITION_LABELS[1]} players={lineup.gk ? [lineup.gk] : []} />
-      </div>
-
-      {lineup.bench.length > 0 && (
-        <div className="border-t border-kb-line px-4 py-3">
-          <div className="label mb-2">Bank</div>
-          <div className="flex flex-wrap gap-2">
-            {lineup.bench.map((p) => (
-              <Tile key={p.id} p={p} muted />
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
+import { PrognosisFlag, StatusFlag } from "./ui";
 
 /* -------------------------------------------------- Aktuelle Aufstellung */
 
@@ -190,10 +112,10 @@ export function Replacements({
                   <div className="label">Zugewinn Ø</div>
                 </div>
                 <div className="text-right">
-                  <div className="num text-data-sm font-semibold text-kb-white">
-                    {eur(s.incoming.maxBid)}
+                  <div className="num text-data-sm font-semibold text-kb-grey-light">
+                    {eur(s.incoming.price)}
                   </div>
-                  <div className="label">Bis max.</div>
+                  <div className="label">Preis</div>
                 </div>
                 <div className="text-right">
                   <div
