@@ -281,6 +281,94 @@ export function LeagueTable({
   );
 }
 
+/* ------------------------------------------------------------- Formkurve */
+
+export interface ManagerForm {
+  d7: number | null;
+  d1: number | null;
+}
+
+/**
+ * Wer holt gerade die meisten Punkte? Baut sich aus den taeglichen
+ * Schnappschuessen auf - Kickbase kennt keine Vergangenheit, das Gedaechtnis
+ * faengt beim ersten gespeicherten Stand an.
+ */
+export function LeagueForm({
+  rows,
+  form,
+  empty,
+  since,
+}: {
+  rows: LeagueRow[];
+  form: Map<string, ManagerForm>;
+  empty: boolean;
+  /** Kalendertag, gegen den die Wochenform verglichen wird. */
+  since: string | null;
+}) {
+  if (empty) {
+    return (
+      <section className="mt-6 card overflow-hidden">
+        <div className="border-b border-kb-line px-4 py-3">
+          <h2 className="display text-base">Formkurve</h2>
+        </div>
+        <p className="px-4 py-4 text-data-xs leading-relaxed text-kb-grey">
+          Noch keine Historie. Ab dem nächsten gespeicherten Schnappschuss zeigt
+          sich hier, wer in der Liga gerade die meisten Punkte holt – Kickbase
+          liefert keine Vergangenheit, der Verlauf baut sich Tag für Tag auf.
+        </p>
+      </section>
+    );
+  }
+
+  const ranked = [...rows]
+    .map((r) => ({ row: r, f: form.get(r.id) ?? { d1: null, d7: null } }))
+    .filter((x) => x.f.d7 !== null || x.f.d1 !== null)
+    .sort((a, b) => (b.f.d7 ?? b.f.d1 ?? 0) - (a.f.d7 ?? a.f.d1 ?? 0));
+
+  if (!ranked.length) return null;
+
+  return (
+    <section className="mt-6 card overflow-hidden">
+      <div className="flex items-baseline justify-between border-b border-kb-line px-4 py-3">
+        <h2 className="display text-base">Formkurve</h2>
+        <span className="label">
+          Punkte seit {since ?? "dem letzten Stand"}
+        </span>
+      </div>
+      <ul className="divide-y divide-kb-line/70">
+        {ranked.map(({ row: r, f }, i) => (
+          <li
+            key={r.id}
+            className={`flex items-center gap-3 px-4 py-2.5 ${
+              r.isMe ? "border-l-2 border-l-kb-red bg-kb-raised" : ""
+            }`}
+          >
+            <span className="num w-6 shrink-0 text-center text-data-sm font-bold text-kb-grey">
+              {i + 1}
+            </span>
+            <span
+              className={`min-w-0 flex-1 truncate ${
+                r.isMe ? "font-bold uppercase tracking-wide text-kb-white" : "font-semibold text-kb-grey-light"
+              }`}
+            >
+              {r.name}
+            </span>
+            {f.d1 !== null && (
+              <span className="num w-20 text-right text-data-xs text-kb-grey">
+                +{f.d1} gestern
+              </span>
+            )}
+            <span className="num w-24 text-right text-data-sm font-bold text-kb-white">
+              +{f.d7 ?? f.d1 ?? 0}
+              <span className="ml-1 text-data-xs font-normal text-kb-grey">Pkt</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Kurze Zusammenfassung ueber der Tabelle. */
 export function LeagueLead({ rows }: { rows: LeagueRow[] }) {
   const me = rows.find((r) => r.isMe);

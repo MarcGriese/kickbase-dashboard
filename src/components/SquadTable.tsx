@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { RatedPlayer } from "@/lib/advisor";
 import {
@@ -237,7 +238,13 @@ export function SquadTable({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="font-semibold">{p.fullName}</span>
+                    <Link
+                      href={`/spieler/${p.id}`}
+                      className="font-semibold underline-offset-2 hover:underline"
+                      title="Punkte je Spiel ansehen"
+                    >
+                      {p.fullName}
+                    </Link>
                     <StatusFlag status={p.status} />
                     <PrognosisFlag prognosis={p.prognosis} />
                   </div>

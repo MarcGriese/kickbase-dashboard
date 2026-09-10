@@ -173,6 +173,69 @@ export async function getLineup(
 }
 
 /**
+ * Punkte eines Spielers Spiel fuer Spiel - der "Punkte"-Tab aus der
+ * Kickbase-App. Nicht offiziell dokumentiert: wir probieren mehrere Pfade und
+ * lesen die gaengigen Formen aus. Findet sich nichts, kommt `null` zurueck.
+ */
+export interface PerformanceEntry {
+  matchday: number;
+  points: number | null;
+  minutes: number | null;
+  /** Gegner-Team-ID, falls die Antwort sie mitfuehrt. */
+  opponentId: number | null;
+  /** Startelf/eingewechselt/nicht dabei, roh wie geliefert. */
+  status: number | null;
+}
+
+export async function getPlayerPerformance(
+  token: string,
+  leagueId: string,
+  playerId: string
+): Promise<PerformanceEntry[] | null> {
+  return firstOf<PerformanceEntry[]>(
+    [
+      `/v4/leagues/${leagueId}/players/${playerId}/performance`,
+      `/v4/competitions/${COMPETITION_ID}/players/${playerId}/performance`,
+      `/v4/leagues/${leagueId}/players/${playerId}/performances`,
+      `/v4/competitions/${COMPETITION_ID}/playercenter/${playerId}`,
+    ],
+    token,
+    (d) => {
+      // Gaengige Formen: { it: [{ day, p, ... }] } oder verschachtelt nach Saison.
+      let items: any[] = Array.isArray(d?.it) ? d.it : [];
+      if (!items.length && Array.isArray(d?.ph)) {
+        // { ph: [{ it: [...] }] } - nach Saison gruppiert, wir nehmen alle.
+        items = d.ph.flatMap((s: any) => (Array.isArray(s?.it) ? s.it : []));
+      }
+      if (!items.length) return null;
+
+      const entries = items
+        .map((e) => {
+          const matchday = Number(e?.day ?? e?.md ?? e?.d ?? 0) || 0;
+          if (!matchday) return null;
+          return {
+            matchday,
+            points: numOrNullLocal(e?.p ?? e?.mp ?? e?.points),
+            minutes: numOrNullLocal(e?.mi ?? e?.min ?? e?.minutes),
+            opponentId: numOrNullLocal(e?.t ?? e?.opp ?? e?.tid),
+            status: numOrNullLocal(e?.st ?? e?.status),
+          } as PerformanceEntry;
+        })
+        .filter((e): e is PerformanceEntry => e !== null)
+        .sort((a, b) => a.matchday - b.matchday);
+
+      return entries.length ? entries : null;
+    }
+  );
+}
+
+function numOrNullLocal(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
  * Rangliste der Liga. Ohne `dayNumber` die Gesamtwertung; die Antwort traegt
  * pro Manager auch `mdp`, die Punkte des zuletzt gewerteten Spieltags.
  */

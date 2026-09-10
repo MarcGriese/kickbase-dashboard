@@ -15,7 +15,10 @@ function Tile({ p, muted = false }: { p: RatedPlayer; muted?: boolean }) {
     >
       <PlayerPhoto src={playerImage(p.image)} name={p.fullName} size={36} />
       <div className="w-full truncate text-data-sm font-semibold">{p.name}</div>
-      <div className="num text-data-xs text-kb-grey-light">Ø {p.average.toFixed(0)}</div>
+      <div className="num text-data-xs text-kb-grey-light">
+        Ø {p.average.toFixed(0)} · erw.{" "}
+        <span className="font-semibold text-kb-white">{p.expectedPoints.toFixed(0)}</span>
+      </div>
       <div className="flex flex-wrap items-center justify-center gap-1">
         <StatusFlag status={p.status} />
         <PrognosisFlag prognosis={p.prognosis} />

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { LeagueTable, LeagueLead, type LeagueRow } from "@/components/LeagueTable";
+import { LeagueTable, LeagueLead, LeagueForm, type LeagueRow } from "@/components/LeagueTable";
 import { getToken, getLeagueId } from "@/lib/session";
 import {
   getRanking,
@@ -20,6 +20,7 @@ import {
   type ManagerRow,
 } from "@/lib/league";
 import { budgetRoom, MAX_NEGATIVE_SHARE } from "@/lib/budget";
+import { compareManagers } from "@/lib/snapshot";
 import { eur } from "@/lib/fields";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +98,12 @@ export default async function LigaPage() {
   const matchday = numOrNull(rankingRaw?.day ?? rankingRaw?.cd ?? rankingRaw?.md);
   const derivedCount = rows.filter((r) => !r.isMe && r.budget !== null).length;
 
+  // Formkurve aus den gespeicherten Manager-Staenden.
+  const formReport = compareManagers(
+    leagueId,
+    managers.filter((m) => m.id).map((m) => ({ managerId: m.id, points: m.points }))
+  );
+
   return (
     <>
       <Nav />
@@ -118,6 +125,13 @@ export default async function LigaPage() {
         />
 
         <LeagueTable rows={rows} matchday={matchday} />
+
+        <LeagueForm
+          rows={rows}
+          form={formReport.byManager}
+          empty={formReport.empty}
+          since={formReport.ref7?.day ?? formReport.reference?.day ?? null}
+        />
 
         <div className="mt-4 space-y-2 text-data-xs leading-relaxed text-kb-grey">
           <p>
