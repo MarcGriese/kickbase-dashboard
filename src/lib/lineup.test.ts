@@ -107,6 +107,31 @@ test("leerer Kader ergibt keine Aufstellung", () => {
   assert.equal(pickBestEleven([]), null);
 });
 
+test("ein als fest markierter schwacher Spieler steht trotzdem in der Elf", () => {
+  const squad: Startable[] = [
+    player({ id: "gk", pos: 1, average: 100 }),
+    ...[90, 85, 80, 50, 40].map((a, i) => player({ id: `d${i}`, pos: 2, average: a })),
+    ...[95, 90, 88, 60, 50, 40].map((a, i) => player({ id: `m${i}`, pos: 3, average: a })),
+    ...[120, 110, 100].map((a, i) => player({ id: `a${i}`, pos: 4, average: a })),
+  ];
+  // d4 (Schnitt 40) wuerde normal auf der Bank sitzen - als fest muss er starten.
+  const lineup = pickBestEleven(squad, new Map(), { locked: new Set(["d4"]) });
+  assert.ok(lineup!.starters.some((p) => p.id === "d4"));
+});
+
+test("ausgeschlossene Spieler starten nicht, bleiben aber auf der Bank", () => {
+  const squad: Startable[] = [
+    player({ id: "gk", pos: 1, average: 100 }),
+    ...[90, 85, 80].map((a, i) => player({ id: `d${i}`, pos: 2, average: a })),
+    ...[95, 90, 88, 60].map((a, i) => player({ id: `m${i}`, pos: 3, average: a })),
+    ...[120, 110, 100].map((a, i) => player({ id: `a${i}`, pos: 4, average: a })),
+  ];
+  // a0 ist der beste Stuermer - ausgeschlossen darf er nicht starten.
+  const lineup = pickBestEleven(squad, new Map(), { excluded: new Set(["a0"]) });
+  assert.ok(!lineup!.starters.some((p) => p.id === "a0"));
+  assert.ok(lineup!.bench.some((p) => p.id === "a0"));
+});
+
 /* -------------------------------------------------- suggestReplacements */
 
 function market(over: Partial<MarketStartable>): MarketStartable {
@@ -140,8 +165,27 @@ test("schlaegt positionsgleich einen klar besseren, bezahlbaren Spieler vor", ()
   assert.equal(swaps[0].out.id, "weak-def");
   assert.equal(swaps[0].incoming.id, "good-def");
   assert.equal(swaps[0].improvement, 50);
-  // Netto = Maximalgebot 6 Mio - Verkaufserloes 3 Mio = 3 Mio.
-  assert.equal(swaps[0].netCost, 3 * MIO);
+  // Netto = Kaufpreis 5 Mio - Verkaufserloes 3 Mio = 2 Mio.
+  assert.equal(swaps[0].netCost, 2 * MIO);
+});
+
+test("teure Vorschläge, die nicht ins Budget passen, fallen raus", () => {
+  const starters = [{ ...player({ id: "d", pos: 2, average: 40 }), marketValue: 1 * MIO }];
+  // Preis 20 Mio, Budget 5 Mio, Verkaufserloes 1 Mio -> 6 Mio verfuegbar < 20.
+  const candidates = [market({ id: "star", pos: 2, average: 200, price: 20 * MIO })];
+  const swaps = suggestReplacements(starters, candidates, new Map(), { budget: 5 * MIO });
+  assert.equal(swaps.length, 0);
+});
+
+test("ohne bekanntes Budget nur aus dem Verkauf finanzierbare Wechsel", () => {
+  const starters = [{ ...player({ id: "d", pos: 2, average: 40 }), marketValue: 8 * MIO }];
+  const candidates = [
+    market({ id: "cheap", pos: 2, average: 90, price: 6 * MIO }), // <= 8 Mio Verkauf: ok
+    market({ id: "dear", pos: 2, average: 95, price: 12 * MIO }), // > 8 Mio: raus
+  ];
+  const swaps = suggestReplacements(starters, candidates, new Map(), { budget: null });
+  assert.equal(swaps.length, 1);
+  assert.equal(swaps[0].incoming.id, "cheap");
 });
 
 test("filtert Wechsel, die das Budget sprengen", () => {

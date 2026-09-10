@@ -151,7 +151,13 @@ export function playerImage(raw: string | null | undefined): string | null {
 
 export function teamCrest(teamId: number | string | null | undefined): string | null {
   if (teamId === null || teamId === undefined || teamId === "") return null;
-  return `${CDN}/pool/teamsg/${teamId}.png`;
+  const id = Number(teamId);
+  // teamId 0 / NaN kommt aus fehlgeschlagenem Parsen - dann lieber kein Bild
+  // als eine sichere 404, die nur den Platzhalter flackern laesst.
+  if (!Number.isFinite(id) || id <= 0) return null;
+  // Einheitlich mit images.teamLogo (pool/teamsl); der frueher hier
+  // hartkodierte Pfad "teamsg" wich davon ab und lud oft nichts.
+  return `${CDN}/pool/teamsl/${id}.png`;
 }
 
 export function eur(n: number | null | undefined): string {

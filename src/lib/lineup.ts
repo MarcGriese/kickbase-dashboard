@@ -129,17 +129,46 @@ function top<T>(list: T[], n: number): T[] {
  * dem, was da ist, die beste Elf gebaut - lieber eine ehrliche Notloesung als
  * gar keine Empfehlung.
  */
+export interface PickOptions {
+  /** Spieler-IDs, die - wenn moeglich - fest in der Elf stehen sollen. */
+  locked?: Set<string>;
+  /** Spieler-IDs, die nicht starten (zum Verkauf markiert oder von Hand auf die Bank). */
+  excluded?: Set<string>;
+}
+
+/** Waehlt count Spieler aus einer nach Score sortierten Liste - Gesperrte zuerst. */
+function fill<T extends Startable>(
+  sorted: T[],
+  count: number,
+  locked: Set<string>
+): { chosen: T[]; lockMiss: number } {
+  const lockedOnes = sorted.filter((p) => locked.has(p.id));
+  const rest = sorted.filter((p) => !locked.has(p.id));
+  const chosen = lockedOnes.slice(0, count).concat(rest).slice(0, count);
+  // Wie viele gesperrte Spieler dieser Position kein Platz bekamen.
+  const lockMiss = Math.max(0, lockedOnes.length - count);
+  return { chosen, lockMiss };
+}
+
 export function pickBestEleven<T extends Startable>(
   players: T[],
-  byTeam: Map<number, Fixture[]> = new Map()
+  byTeam: Map<number, Fixture[]> = new Map(),
+  opts: PickOptions = {}
 ): Lineup<T> | null {
   if (!players.length) return null;
 
+  const locked = opts.locked ?? new Set<string>();
+  const excluded = opts.excluded ?? new Set<string>();
+  // Ausgeschlossene Spieler kommen als Kandidaten nicht in Frage; ein
+  // gesperrter Spieler sticht einen Ausschluss (widerspruechlich, aber der
+  // Nutzerwille zaehlt).
+  const pool = players.filter((p) => !excluded.has(p.id) || locked.has(p.id));
+
   const cmp = byScoreDesc<T>(byTeam);
-  const keepers = players.filter((p) => p.pos === 1).sort(cmp);
-  const defs = players.filter((p) => p.pos === 2).sort(cmp);
-  const mids = players.filter((p) => p.pos === 3).sort(cmp);
-  const atts = players.filter((p) => p.pos === 4).sort(cmp);
+  const keepers = pool.filter((p) => p.pos === 1).sort(cmp);
+  const defs = pool.filter((p) => p.pos === 2).sort(cmp);
+  const mids = pool.filter((p) => p.pos === 3).sort(cmp);
+  const atts = pool.filter((p) => p.pos === 4).sort(cmp);
 
   const scoreOf = (list: T[]) => list.reduce((s, p) => s + startScore(p, byTeam), 0);
 
@@ -147,29 +176,32 @@ export function pickBestEleven<T extends Startable>(
     (f) => defs.length >= f.def && mids.length >= f.mid && atts.length >= f.att
   );
 
-  const gk = keepers[0] ?? null;
+  const gkPick = fill(keepers, 1, locked);
+  const gk = gkPick.chosen[0] ?? null;
   const gkScore = gk ? startScore(gk, byTeam) : 0;
 
   if (fits.length) {
     const ranked = fits
       .map((f) => {
-        const def = top(defs, f.def);
-        const mid = top(mids, f.mid);
-        const att = top(atts, f.att);
-        const total = gkScore + scoreOf(def) + scoreOf(mid) + scoreOf(att);
-        return { formation: f, def, mid, att, total };
+        const d = fill(defs, f.def, locked);
+        const m = fill(mids, f.mid, locked);
+        const a = fill(atts, f.att, locked);
+        const total = gkScore + scoreOf(d.chosen) + scoreOf(m.chosen) + scoreOf(a.chosen);
+        const lockMiss = d.lockMiss + m.lockMiss + a.lockMiss;
+        return { formation: f, def: d.chosen, mid: m.chosen, att: a.chosen, total, lockMiss };
       })
-      .sort((a, b) => b.total - a.total);
+      // Erst Grundordnungen, die alle Fest-Spieler unterbringen, dann nach Summe.
+      .sort((x, y) => x.lockMiss - y.lockMiss || y.total - x.total);
 
-    const best = ranked[0];
-    return assemble(best, gk, players, byTeam, ranked);
+    return assemble(ranked[0], gk, players, byTeam, ranked);
   }
 
   // Notloesung: beste zehn Feldspieler egal welcher Position.
-  const outfield = players
-    .filter((p) => p.pos !== 1)
-    .sort(cmp)
-    .slice(0, 10);
+  const outfield = fill(
+    pool.filter((p) => p.pos !== 1).sort(cmp),
+    10,
+    locked
+  ).chosen;
   const def = outfield.filter((p) => p.pos === 2);
   const mid = outfield.filter((p) => p.pos === 3);
   const att = outfield.filter((p) => p.pos === 4);
@@ -223,7 +255,7 @@ export interface Replacement<O extends Startable, M extends MarketStartable> {
   /** Zugewinn an Startwert (in erwarteten Punkten). */
   improvement: number;
   /**
-   * Netto-Kosten des Tauschs: Maximalgebot minus dem Marktwert, den der
+   * Netto-Kosten des Tauschs: der Kaufpreis abzueglich des Marktwerts, den der
    * verkaufte Stammspieler wieder einbringt. Negativ = der Tausch spuelt Geld
    * in die Kasse.
    */
@@ -234,10 +266,11 @@ export interface Replacement<O extends Startable, M extends MarketStartable> {
  * Konkrete "ersetze X durch Y"-Vorschlaege.
  *
  * Verglichen wird positionsgleich: ein Marktspieler muss den Stammspieler auf
- * seiner Position um mindestens `minRatio` im Startwert schlagen. Bezahlbar
- * heisst: die Netto-Kosten (Maximalgebot abzueglich des Verkaufserloeses fuer
- * den Weichenden) passen ins Budget - das ist der Puffer, den der Verkauf des
- * ersetzten Spielers schafft.
+ * seiner Position um mindestens `minRatio` im Startwert schlagen. Und er muss
+ * BEZAHLBAR sein: der Kaufpreis darf das freie Budget zuzueglich des
+ * Verkaufserloeses fuer den weichenden Spieler nicht uebersteigen. Ist das
+ * Budget unbekannt, wird es vorsichtig als 0 angenommen - dann taucht nur auf,
+ * was sich allein aus dem Verkauf finanziert.
  *
  * Gierig, aber eindeutig: jeder Stammspieler wird hoechstens einmal ersetzt
  * und jeder Marktspieler hoechstens einmal geholt, in der Reihenfolge des
@@ -247,21 +280,32 @@ export function suggestReplacements<O extends Startable, M extends MarketStartab
   starters: O[],
   market: M[],
   byTeam: Map<number, Fixture[]> = new Map(),
-  opts: { budget?: number | null; minRatio?: number; max?: number } = {}
+  opts: { budget?: number | null; minRatio?: number; max?: number; keep?: Set<string> } = {}
 ): Replacement<O, M>[] {
   const minRatio = opts.minRatio ?? DEFAULT_MIN_RATIO;
-  const budget = opts.budget ?? null;
+  // Unbekanntes Budget vorsichtig als 0 lesen - lieber weniger, aber bezahlbare
+  // Vorschlaege als teure, die nicht ins Budget passen.
+  const budget = opts.budget ?? 0;
   const max = opts.max ?? 6;
+  const keep = opts.keep ?? new Set<string>();
 
   const ownIds = new Set(starters.map((p) => p.id));
 
   const pairs: Replacement<O, M>[] = [];
   for (const out of starters) {
+    if (keep.has(out.id)) continue; // als fest markiert - nicht ersetzen
     const outScore = startScore(out, byTeam);
+    const outValue = (out as unknown as { marketValue?: number }).marketValue ?? 0;
+    // So viel steht fuer diesen Tausch bereit: freies Budget + Verkaufserloes.
+    const canSpend = budget + outValue;
+
     for (const incoming of market) {
       if (incoming.pos !== out.pos) continue;
       if (ownIds.has(incoming.id)) continue; // schon im eigenen Kader
       if (!isAvailable(incoming.status)) continue;
+
+      // Muss den Kaufpreis ueberhaupt stemmen koennen.
+      if (incoming.price > canSpend) continue;
 
       const inScore = startScore(incoming, byTeam);
       if (inScore <= 0) continue;
@@ -269,10 +313,7 @@ export function suggestReplacements<O extends Startable, M extends MarketStartab
       // sonst muss der Zugewinn ueber der Schwelle liegen.
       if (outScore > 0 && inScore < outScore * minRatio) continue;
 
-      const outValue = (out as unknown as { marketValue?: number }).marketValue ?? 0;
-      const netCost = incoming.maxBid - outValue;
-      if (budget !== null && netCost > budget) continue;
-
+      const netCost = incoming.price - outValue;
       pairs.push({ out, incoming, improvement: inScore - outScore, netCost });
     }
   }

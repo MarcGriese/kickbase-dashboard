@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { LineupBoard, CurrentLineup, Replacements } from "@/components/Lineup";
+import { LineupPlanner } from "@/components/LineupPlanner";
 import { getToken, getLeagueId } from "@/lib/session";
 import {
   getSquad,
@@ -13,7 +13,6 @@ import {
   KickbaseError,
 } from "@/lib/kickbase";
 import { rateOwn, rateMarket, leagueOverpay, medianPpm } from "@/lib/advisor";
-import { pickBestEleven, suggestReplacements } from "@/lib/lineup";
 import { buildSchedule, buildTable } from "@/lib/fixtures";
 import { daysUntil } from "@/lib/forecast";
 import { pick } from "@/lib/fields";
@@ -71,24 +70,6 @@ export default async function AufstellungPage() {
     rateMarket(m, factor, budget, { medianPpm: marketReference })
   );
 
-  // Beste Elf aus dem Kader - immer berechenbar.
-  const recommended = pickBestEleven(squad, schedule.byTeam);
-
-  // Gesetzte Elf, falls die API sie hergibt.
-  const byId = new Map(squad.map((p) => [p.id, p]));
-  const realStarters =
-    lineupIds && lineupIds.length
-      ? lineupIds.map((id) => byId.get(id)).filter((p): p is (typeof squad)[number] => !!p)
-      : null;
-
-  // Wogegen die Wechsel gemessen werden: die echte Elf, sonst die empfohlene.
-  const reference = realStarters ?? recommended?.starters ?? [];
-  const swaps = suggestReplacements(reference, market, schedule.byTeam, { budget });
-
-  const expectedLabel = recommended
-    ? `rund ${Math.round(recommended.expectedPoints)} erwartete Punkte`
-    : "";
-
   const horizonLabel = schedule.nextMatchday
     ? `${schedule.nextMatchday}. Spieltag`
     : "nächster Spieltag";
@@ -96,8 +77,8 @@ export default async function AufstellungPage() {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-7xl animate-fade-up space-y-6 px-4 py-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <main className="mx-auto max-w-7xl animate-fade-up px-4 py-6">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="display text-xl">Aufstellung</h1>
           <p className="text-data-sm text-kb-grey-light">
             Ausrichtung auf den{" "}
@@ -105,40 +86,35 @@ export default async function AufstellungPage() {
           </p>
         </div>
 
-        {recommended ? (
-          <LineupBoard lineup={recommended} expectedLabel={expectedLabel} />
-        ) : (
-          <p className="rounded-card border border-kb-line bg-kb-surface/90 px-4 py-3 text-data-sm text-kb-grey">
-            Kein Kader geladen – melde dich neu an oder lege zuerst einen
-            Schnappschuss an.
-          </p>
-        )}
+        <LineupPlanner
+          squad={squad}
+          market={market}
+          fixtures={Array.from(schedule.byTeam.entries())}
+          budget={budget}
+          leagueId={leagueId}
+          realStarterIds={lineupIds}
+        />
 
-        <CurrentLineup starters={realStarters} />
-
-        <Replacements swaps={swaps} referenceIsReal={realStarters !== null} />
-
-        <div className="space-y-2 text-data-xs leading-relaxed text-kb-grey">
+        <div className="mt-6 space-y-2 text-data-xs leading-relaxed text-kb-grey">
           <p>
             <span className="font-semibold text-kb-grey-light">Startwert:</span> der
             Punkteschnitt eines Spielers, halbiert bei „angeschlagen"/„Aufbautraining"
             und um 10 % je nach Stärke des nächsten Gegners justiert. Verletzte,
-            gesperrte und nicht gemeldete Spieler fallen heraus. Das ist eine
-            nachvollziehbare Fortschreibung, keine Kickbase-Prognose.
+            gesperrte und nicht gemeldete Spieler fallen heraus. Eine nachvollziehbare
+            Fortschreibung, keine Kickbase-Prognose.
           </p>
           <p>
             <span className="font-semibold text-kb-grey-light">Wechsel:</span> ein
             Marktspieler wird nur vorgeschlagen, wenn er einen Stammspieler auf
-            derselben Position um mindestens 10 % im Startwert schlägt und der Tausch
-            bezahlbar bleibt. „Netto nach Verkauf" ist das Maximalgebot abzüglich des
-            Marktwerts, den der weichende Spieler wieder einbringt – ein Plus heißt,
-            der Tausch spült Geld in die Kasse.
+            derselben Position um mindestens 10 % im Startwert schlägt und der Kauf
+            bezahlbar bleibt – der Preis darf dein Budget plus den Verkaufserlös des
+            weichenden Spielers nicht übersteigen. „Netto nach Verkauf" ist der Preis
+            abzüglich dieses Erlöses; ein Plus heißt, der Tausch spült Geld in die Kasse.
           </p>
           <p>
-            <span className="font-semibold text-kb-grey-light">Startelf-Prognose</span>{" "}
-            (★ / ✓): erscheint nur, wenn die API sie bestätigt liefert. Solange sie
-            das nicht tut, bleibt der Hinweis aus – lieber nichts als eine geratene
-            Angabe.
+            <span className="font-semibold text-kb-grey-light">Aktuelle Aufstellung:</span>{" "}
+            deine gesetzte Elf zeigt die App nur, wenn die Kickbase-API sie hergibt –
+            sonst bleibt der Vergleich bei der oben berechneten besten Elf.
           </p>
         </div>
       </main>
