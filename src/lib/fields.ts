@@ -138,7 +138,8 @@ export function prognosisFrom(raw: Record<string, unknown> | null | undefined): 
   return "unbekannt";
 }
 
-const CDN = "https://kickbase.b-cdn.net";
+// Kickbase-CDN. Ueber KB_IMAGE_BASE umstellbar, falls der Host wechselt.
+const CDN = (process.env.KB_IMAGE_BASE ?? "https://kickbase.b-cdn.net").replace(/\/+$/, "");
 
 export function playerImage(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -155,9 +156,10 @@ export function teamCrest(teamId: number | string | null | undefined): string | 
   // teamId 0 / NaN kommt aus fehlgeschlagenem Parsen - dann lieber kein Bild
   // als eine sichere 404, die nur den Platzhalter flackern laesst.
   if (!Number.isFinite(id) || id <= 0) return null;
-  // Einheitlich mit images.teamLogo (pool/teamsl); der frueher hier
-  // hartkodierte Pfad "teamsg" wich davon ab und lud oft nichts.
-  return `${CDN}/pool/teamsl/${id}.png`;
+  // Einheitlich mit images.teamLogo (pool/teams). Ueber KB_TEAM_LOGO_TEMPLATE
+  // anpassbar, falls Kickbase den Pfad aendert.
+  const template = process.env.KB_TEAM_LOGO_TEMPLATE ?? `${CDN}/pool/teams/{id}.png`;
+  return template.replace("{id}", String(id));
 }
 
 export function eur(n: number | null | undefined): string {

@@ -21,6 +21,7 @@ import {
   calibrate,
   deriveBudget,
   parseRanking,
+  sumMarketValue,
   rulesFromEnv,
   startCapital,
   sumUnrealized,
@@ -189,6 +190,28 @@ test("die Rangliste wird mit den v4-Kuerzeln gelesen", () => {
   assert.equal(rows[1].isMe, true);
 });
 
+test("die eigene ID markiert den richtigen Eintrag", () => {
+  // Die v4-Rangliste enthaelt kein Feld fuers eigene Konto - die ID kommt
+  // von aussen und muss den Eintrag treffen.
+  const rows = parseRanking(
+    {
+      us: [
+        { i: "u1", n: "Anna", sp: 1200 },
+        { i: "u2", n: "Marc", sp: 1100 },
+      ],
+    },
+    "u2"
+  );
+  assert.equal(rows[0].isMe, false);
+  assert.equal(rows[1].isMe, true);
+
+  // Ohne ID markiert die Herleitung niemanden - besser gar keinen als den
+  // falschen (das war der Fehler, der das eigene Budget herleiten liess,
+  // statt den echten Wert zu nehmen).
+  const none = parseRanking({ us: [{ i: "u1", n: "Anna" }, { i: "u2", n: "Marc" }] });
+  assert.equal(none.some((r) => r.isMe), false);
+});
+
 test("fehlende Spieltagspunkte sind null und nicht null Punkte", () => {
   const rows = parseRanking({ us: [{ i: "u1", n: "Anna", sp: 900 }] });
   assert.equal(rows[0].matchdayPoints, null);
@@ -204,6 +227,17 @@ test("stille Reserven summieren sich ueber den Kader", () => {
   assert.equal(sumUnrealized(null), null);
   // Ein Kader ohne mvgl-Feld ist unbekannt, nicht null Euro wert.
   assert.equal(sumUnrealized([{ mv: 5 }, { mv: 7 }]), null);
+});
+
+test("der Kaderwert summiert die Marktwerte des aktuellen Kaders", () => {
+  // Grundlage der Herleitung: der LIVE-Teamwert, nicht der veraltete tv.
+  assert.equal(
+    sumMarketValue([{ mv: 100_000_000 }, { mv: 50_000_000 }, { mv: 31_846_913 }]),
+    181_846_913
+  );
+  assert.equal(sumMarketValue([{ marketValue: 5 }, { marketValue: 7 }]), 12);
+  assert.equal(sumMarketValue([]), null);
+  assert.equal(sumMarketValue(null), null);
 });
 
 /* ------------------------------------------------------------------- Regeln */

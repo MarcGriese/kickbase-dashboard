@@ -109,6 +109,22 @@ export async function login(email: string, password: string) {
   return { token, raw: data };
 }
 
+/**
+ * ID des angemeldeten Nutzers. Die Rangliste markiert das eigene Konto nicht
+ * (kein "me"-Feld in der Antwort), deshalb holen wir die ID separat und
+ * gleichen sie gegen die `i` der Ranglisteneintraege ab.
+ */
+export async function getMyId(token: string): Promise<string | null> {
+  return firstOf<string>(
+    ["/v4/user/settings", "/v4/user/me"],
+    token,
+    (d) => {
+      const id = d?.u?.i ?? d?.u?.id ?? d?.i ?? d?.id ?? null;
+      return id === null || id === undefined || id === "" ? null : String(id);
+    }
+  );
+}
+
 /** Alle Ligen, in denen du Manager bist. */
 export async function getLeagues(token: string) {
   const items = await firstOf<Json[]>(

@@ -13,6 +13,8 @@
 
 import { pick } from "./fields";
 
+// Kickbase-CDN. Spielerfotos liegen unter /pool/playersbig, Wappen unter
+// /pool/teams. Ueber KB_IMAGE_BASE umstellbar, falls Kickbase den Host wechselt.
 const DEFAULT_CDN = "https://kickbase.b-cdn.net";
 
 function cdn(): string {
@@ -51,7 +53,7 @@ export function teamLogo(
   if (id === null || id === undefined || id === "") return null;
 
   const template =
-    process.env.KB_TEAM_LOGO_TEMPLATE ?? `${cdn()}/pool/teamsl/{id}.png`;
+    process.env.KB_TEAM_LOGO_TEMPLATE ?? `${cdn()}/pool/teams/{id}.png`;
   return template.replace("{id}", String(id));
 }
 
